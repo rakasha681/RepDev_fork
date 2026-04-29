@@ -1,0 +1,21 @@
+<RepDevStyle extends="default">
+  <header>
+    <name>Rose Light</name>
+    <version>1.0</version>
+    <author>Gemini</author>
+    <description><![CDATA[Soft, warm theme with rose-water backgrounds and berry accents.]]></description>
+  </header>
+  <palette>
+    <color id="rose-bg" value="#FFF1F2" />
+    <color id="rose-gutter" value="#FFE4E6" />
+    <color id="rose-accent" value="#E11D48" />
+  </palette>
+  <style>
+    <editor bgColor="@rose-bg" gutterBg="@rose-gutter" selectionBg="#FECDD3" />
+    <surface bgColor="#FFE4E6" sashColor="#FDA4AF" borderColor="#FDA4AF" />
+    <keywords fgColor="#BE123C" />
+    <functions fgColor="#FB7185" />
+    <variables fgColor="#E11D48" />
+    <rainbow c1="#B45309" c2="#9D174D" c3="#1E40AF" c4="#065F46" c5="#BE123C" c6="#C2410C" />
+  </style>
+</RepDevStyle>

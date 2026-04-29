@@ -51,6 +51,10 @@ public class RepgenParser {
 	private boolean reparse = true;
 
 	private static DatabaseLayout db = DatabaseLayout.getInstance();
+	// Lazy cache of lvar names so SyntaxHighlighter.getStyle can do O(1) name
+	// lookups instead of an O(V) ArrayList scan per token per paint. Set to
+	// null whenever {@code lvars} is mutated; rebuilt on next getLvarNames().
+	private volatile java.util.HashSet<String> lvarNames;
 	private static SpecialVariables specialvars = SpecialVariables.getInstance();
 	private static FunctionLayout functions = FunctionLayout.getInstance();
 	private static KeywordLayout keywords = KeywordLayout.getInstance();
@@ -69,6 +73,15 @@ public class RepgenParser {
 
 	BackgroundSymitarErrorChecker errorCheckerWorker = null;
 	BackgroundIncludeParser includeParserWorker = null;
+
+	// Optional source of currently-hidden text (e.g. collapsed folds). When
+	// set, usage scans (unused-var check) also walk these segments so that a
+	// variable referenced only inside a folded region isn't flagged unused.
+	private HiddenTextProvider hiddenTextProvider = null;
+
+	public void setHiddenTextProvider(HiddenTextProvider p) {
+		this.hiddenTextProvider = p;
+	}
 
 	boolean initialIncludeParseNeeded = true; //This will make sure that we parse the includes at least once when the file is first opened
 	boolean refreshIncludes = false; //The parser will keep track of changes as the file is edited, and if an include reparse is needed, this flag will be set. 
@@ -227,22 +240,25 @@ public class RepgenParser {
 				errorList.clear();
 				taskList.clear();
 
-				// Error check with symitar
-				// Only check errors if File name does not end with .PRO, .SET, .DEF, .INC
-				String[] extensionsToExclude = com.repdev.Config.getNoErrorCheckSuffix().split(",");
-				boolean checkFile = true;
-				if(extensionsToExclude[0].length() != 0){
-					for(String extension : extensionsToExclude){
-						if(file.getName().endsWith(extension))
-							checkFile = false;
+				// Server-side error check with symitar — local files and the
+				// excluded filename patterns (.PRO/.SET/.DEF/.INC, INC.) skip
+				// this, but the local analyses below (duplicates, unused vars,
+				// tasks) still run so offline editing gets warnings.
+				boolean checkFile = !file.isLocal();
+				if(checkFile){
+					String[] extensionsToExclude = com.repdev.Config.getNoErrorCheckSuffix().split(",");
+					if(extensionsToExclude[0].length() != 0){
+						for(String extension : extensionsToExclude){
+							if(file.getName().endsWith(extension))
+								checkFile = false;
+						}
 					}
-				}
-				//System.out.println(com.repdev.Config.getNoErrorCheckPrefix());
-				extensionsToExclude = com.repdev.Config.getNoErrorCheckPrefix().split(",");
-				if(extensionsToExclude[0].length() != 0){
-					for(String extension : extensionsToExclude){
-						if(file.getName().startsWith(extension))
-						checkFile = false;
+					extensionsToExclude = com.repdev.Config.getNoErrorCheckPrefix().split(",");
+					if(extensionsToExclude[0].length() != 0){
+						for(String extension : extensionsToExclude){
+							if(file.getName().startsWith(extension))
+							checkFile = false;
+						}
 					}
 				}
 				if(checkFile){
@@ -277,8 +293,21 @@ public class RepgenParser {
 
 
 				synchronized(includeTokenChache){
+					// Pre-build a single lowercased list of fold-body strings so
+					// we don't allocate fresh ArrayList<String>+lowercase per
+					// variable iteration below. Without hoisting this, the cost
+					// is V × F × O(H) plus V × F transient strings on every
+					// background error pass.
+					ArrayList<String> hiddenLower = null;
+					if (hiddenTextProvider != null) {
+						hiddenLower = new ArrayList<String>();
+						for (String hidden : hiddenTextProvider.getUsageSearchableHiddenText()) {
+							if (hidden != null) hiddenLower.add(hidden.toLowerCase());
+						}
+					}
+
 					//unused var checking
-					for (final Variable var : lvars) {	
+					for (final Variable var : lvars) {
 						if( !var.getFilename().equals(file.getName()) )
 							continue;
 
@@ -309,6 +338,23 @@ public class RepgenParser {
 
 								if( var.getName().equals(tok.getStr()) )
 									unused = false;
+							}
+						}
+
+						// Hidden-text fallback: a variable used only inside a
+						// collapsed fold won't appear in ltokens (folding
+						// physically removes the lines from the buffer), so the
+						// visible-token scans above can flag it as unused. Scan
+						// the fold body text directly. The provider already
+						// excludes DEFINE bodies (declarations) and bracket
+						// comments (not usages).
+						if (unused && hiddenLower != null && !hiddenLower.isEmpty()) {
+							String varNameLower = var.getName().toLowerCase();
+							for (int h = 0; h < hiddenLower.size(); h++) {
+								if (containsWord(hiddenLower.get(h), varNameLower)) {
+									unused = false;
+									break;
+								}
 							}
 						}
 
@@ -889,8 +935,10 @@ public class RepgenParser {
 
 		//Note: I don't think this block still needs syncing, I changed a number of things
 		while( c < lvars.size() ){
-			if( lvars.get(c).getFilename().equals(fileName))
+			if( lvars.get(c).getFilename().equals(fileName)) {
 				oldvars.add(lvars.remove(c));
+				lvarNames = null;
+			}
 			else
 				c++;
 		}
@@ -1007,6 +1055,7 @@ public class RepgenParser {
 		//Still needs synchronizing, as the method level synchronized doesn't effect calls from the background parsers
 		synchronized(lvars){
 			lvars.addAll(newvars);
+			lvarNames = null;
 		}
 
 		if (changed && fileName.equals(file.getName()))
@@ -1141,6 +1190,28 @@ public class RepgenParser {
 		return lvars;
 	}
 
+	/**
+	 * O(1)-lookup view of the names in {@link #lvars}. Built lazily on first
+	 * call after a mutation, then reused until the next add/remove. Use this
+	 * from paint hot paths instead of iterating {@link #getLvars()}.
+	 */
+	public java.util.Set<String> getLvarNames() {
+		java.util.HashSet<String> cache = lvarNames;
+		if (cache != null) return cache;
+		java.util.HashSet<String> built = new java.util.HashSet<String>();
+		synchronized (lvars) {
+			for (int i = 0; i < lvars.size(); i++) {
+				Variable v = lvars.get(i);
+				if (v != null) {
+					String n = v.getName();
+					if (n != null) built.add(n);
+				}
+			}
+		}
+		lvarNames = built;
+		return built;
+	}
+
 	public void setReparse(boolean reparse) {
 		this.reparse = reparse;
 	}
@@ -1180,6 +1251,26 @@ public class RepgenParser {
 
 	public static KeywordLayout getKeywords() {
 		return keywords;
+	}
+
+	/**
+	 * Whole-word containment test: matches when neither neighboring char is a
+	 * letter or digit. RepGen identifiers are alphanumeric, so this matches the
+	 * token-boundary semantics used elsewhere. Both inputs must already be
+	 * lowercased if a case-insensitive match is wanted.
+	 */
+	static boolean containsWord(String haystack, String word) {
+		if (haystack == null || word == null || word.length() == 0) return false;
+		int from = 0;
+		while (true) {
+			int idx = haystack.indexOf(word, from);
+			if (idx < 0) return false;
+			char before = idx == 0 ? ' ' : haystack.charAt(idx - 1);
+			int afterIdx = idx + word.length();
+			char after = afterIdx >= haystack.length() ? ' ' : haystack.charAt(afterIdx);
+			if (!Character.isLetterOrDigit(before) && !Character.isLetterOrDigit(after)) return true;
+			from = idx + 1;
+		}
 	}
 
 	public static void setKeywords(KeywordLayout keywords) {

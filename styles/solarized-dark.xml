@@ -1,0 +1,35 @@
+<RepDevStyle>
+  <header>
+    <name>Solarized Dark</name>
+    <version>1.0</version>
+    <author>RepDev (palette: Ethan Schoonover)</author>
+    <description><![CDATA[Solarized Dark — the classic precision-color scheme for machines and people, in its dark variant.]]>
+    </description>
+  </header>
+
+  <style>
+    <editor bgColor="#002B36" fgColor="#839496" line="#073642" token="#586E75" font="Courier New" fontSize="12" />
+
+    <surface   bgColor="#073642" fgColor="#93A1A1" />
+    <button    bgColor="#268BD2" fgColor="#FDF6E3" />
+    <selection bgColor="#586E75" fgColor="#FDF6E3" />
+    <tabStyle  selBg="#002B36"   selFg="#93A1A1" />
+
+    <linenumber fgColor="#586E75" />
+    <comments   fgColor="#586E75" style="italic" />
+    <variables  fgColor="#268BD2" style="bold" />
+    <functions  fgColor="#268BD2" style="bold" />
+    <keywords   fgColor="#859900" />
+    <task       fgColor="#B58900" style="bold" />
+
+    <typeChar fgColor="#2AA198" />
+    <typeDate fgColor="#2AA198" style="bold" />
+
+    <struct1    fgColor="#D33682" />
+    <struct1Inv fgColor="#D33682" bgColor="#3A0000" />
+    <struct2    fgColor="#6C71C4" />
+    <struct2Inv fgColor="#6C71C4" bgColor="#3A0000" />
+
+    <rainbow c1="#B58900" c2="#D33682" c3="#268BD2" c4="#859900" c5="#DC322F" c6="#CB4B16" />
+  </style>
+</RepDevStyle>

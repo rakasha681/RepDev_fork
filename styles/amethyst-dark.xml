@@ -1,0 +1,21 @@
+<RepDevStyle extends="dark">
+  <header>
+    <name>Amethyst Dark</name>
+    <version>1.0</version>
+    <author>Gemini</author>
+    <description><![CDATA[Rich purple tones with bright lavender highlights.]]></description>
+  </header>
+  <palette>
+    <color id="purple-bg" value="#1E1B4B" />
+    <color id="purple-accent" value="#A78BFA" />
+  </palette>
+  <style>
+    <editor bgColor="@purple-bg" gutterBg="#1A173F" selectionBg="#312E81" />
+    <surface bgColor="#1E1B4B" sashColor="#4338CA" borderColor="#4338CA" />
+    <tabStyle inactiveBg="#2E1065" inactiveFg="#C4B5FD" />
+    <keywords fgColor="#F472B6" />
+    <functions fgColor="#818CF8" />
+    <variables fgColor="#A5B4FC" style="bold,italic" />
+    <rainbow c1="#FBBF24" c2="#F472B6" c3="#A5B4FC" c4="#6EE7B7" c5="#F87171" c6="#FDBA74" />
+  </style>
+</RepDevStyle>

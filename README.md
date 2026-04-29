@@ -18,7 +18,7 @@ Features:
  - Drag and drop multiple files from Test to Production at the same time
  - Pleasant graphical theme
  - Supports EASE Client Menu Selections
- - Supports Oracle/Sun Java as well as Open JDK, 32 bit and 64 bit
+ - Supports Oracle/Sun Java as well as Open JDK
  - Supports RepDev Single Sign-On to Servers and SYMs
  - Facilitates your In-House Source Control Solution
 
@@ -27,3 +27,26 @@ The latest versions can be download here:
 
 Documentation is available for download here:
 <a href="https://github.com/jakepoz/RepDev-downloads/raw/master/RepDev_Guide.pdf">RepDev Guide</a>
+
+Build
+-----
+
+RepDev now has a primary Maven build path.
+
+Requirements:
+ - Java 21
+ - Maven 3.9+
+ - 64-bit OS/JRE
+
+Common commands:
+ - `mvn -q -DskipTests compile`
+ - `mvn -q -DskipTests package`
+
+The packaged app layout is written to `target/app/`.
+On Windows you can launch either:
+ - the repo-root `start.bat` after packaging, which will prefer `target/app/`
+ - the copied `start.bat` inside `target/app/`
+  - `package-windows.bat` to build the app layout and, if Launch4j is installed, produce `target/windows/repdev.exe`
+
+Runtime SVG icon support uses SWT SVG plus `jsvg`.
+Runtime action icons are now SVG-only. Branding assets such as the app icon and About logo remain bitmap-based.

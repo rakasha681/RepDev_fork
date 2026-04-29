@@ -1,0 +1,20 @@
+<RepDevStyle extends="default">
+  <header>
+    <name>Mint Light</name>
+    <version>1.0</version>
+    <author>Gemini</author>
+    <description><![CDATA[Refreshing light theme with soft mint and sage greens.]]></description>
+  </header>
+  <palette>
+    <color id="mint-bg" value="#F7FEE7" />
+    <color id="mint-accent" value="#4D7C0F" />
+  </palette>
+  <style>
+    <editor bgColor="@mint-bg" gutterBg="#ECFCCB" selectionBg="#D9F99D" />
+    <surface bgColor="#ECFCCB" sashColor="#BEF264" borderColor="#BEF264" />
+    <keywords fgColor="#365314" />
+    <functions fgColor="#65A30D" />
+    <comments fgColor="#A3A3A3" style="italic" />
+    <rainbow c1="#B45309" c2="#7C3AED" c3="#1D4ED8" c4="#15803D" c5="#BE123C" c6="#9A3412" />
+  </style>
+</RepDevStyle>

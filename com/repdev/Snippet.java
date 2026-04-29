@@ -38,7 +38,16 @@ public class Snippet {
 	}
 	
 	public static Snippet createFromXML( File xmlFile){
+		// XXE hardening: snippet XML files are user-editable on disk, so the
+		// parser must not honour DOCTYPE / external entity / XInclude
+		// directives. Same hardening as Style.newSecureDocumentBuilderFactory.
 		DocumentBuilderFactory dbf = DocumentBuilderFactory.newInstance();
+		try { dbf.setFeature("http://apache.org/xml/features/disallow-doctype-decl", true); } catch (Exception ignored) { }
+		try { dbf.setFeature("http://xml.org/sax/features/external-general-entities", false); } catch (Exception ignored) { }
+		try { dbf.setFeature("http://xml.org/sax/features/external-parameter-entities", false); } catch (Exception ignored) { }
+		try { dbf.setFeature("http://apache.org/xml/features/nonvalidating/load-external-dtd", false); } catch (Exception ignored) { }
+		try { dbf.setXIncludeAware(false); } catch (Exception ignored) { }
+		try { dbf.setExpandEntityReferences(false); } catch (Exception ignored) { }
 		DocumentBuilder db;
 		Element head, header, types, declarations, snippet;
 		String title, description, author, shortcut, snippetStr;

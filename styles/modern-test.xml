@@ -1,0 +1,19 @@
+<RepDevStyle extends="dark">
+  <header>
+    <name>Modern Test</name>
+    <version>1.0</version>
+    <author>Gemini</author>
+    <description><![CDATA[Test theme for new features including palette, inheritance, gutter background, and comma-separated font styles.]]></description>
+  </header>
+  <palette>
+    <color id="my-accent" value="#007ACC" />
+    <color id="my-gutter" value="#121212" />
+    <color id="my-inactive" value="#2D2D2D" />
+  </palette>
+  <style>
+    <editor gutterBg="@my-gutter" selectionBg="@my-accent" selectionFg="#FFFFFF" findMatchBg="#613214" />
+    <tabStyle inactiveBg="@my-inactive" inactiveFg="#888888" borderColor="#444444" />
+    <surface sashColor="#444444" />
+    <variables style="bold,italic" />
+  </style>
+</RepDevStyle>

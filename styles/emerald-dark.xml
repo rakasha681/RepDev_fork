@@ -1,0 +1,21 @@
+<RepDevStyle extends="dark">
+  <header>
+    <name>Emerald Dark</name>
+    <version>1.0</version>
+    <author>Gemini</author>
+    <description><![CDATA[Deep emerald variant of the dark theme. High readability with soft greens.]]></description>
+  </header>
+  <palette>
+    <color id="emerald-deep" value="#062016" />
+    <color id="emerald-gutter" value="#041810" />
+    <color id="emerald-accent" value="#10B981" />
+  </palette>
+  <style>
+    <editor bgColor="@emerald-deep" gutterBg="@emerald-gutter" selectionBg="#065F46" selectionFg="#ECFDF5" />
+    <surface bgColor="#041B13" sashColor="#064E3B" borderColor="#064E3B" />
+    <tabStyle inactiveBg="#062C1E" inactiveFg="#6EE7B7" borderColor="#064E3B" />
+    <keywords fgColor="#34D399" />
+    <variables fgColor="#A7F3D0" style="bold,italic" />
+    <rainbow c1="#FBBF24" c2="#F472B6" c3="#60A5FA" c4="#6EE7B7" c5="#FCA5A5" c6="#FDBA74" />
+  </style>
+</RepDevStyle>

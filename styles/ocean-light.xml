@@ -1,0 +1,22 @@
+<RepDevStyle extends="default">
+  <header>
+    <name>Ocean Light</name>
+    <version>1.0</version>
+    <author>Gemini</author>
+    <description><![CDATA[Bright and airy theme inspired by sea foam and clear waters.]]></description>
+  </header>
+  <palette>
+    <color id="ocean-bg" value="#F0F9FF" />
+    <color id="ocean-gutter" value="#E0F2FE" />
+    <color id="ocean-accent" value="#0284C7" />
+  </palette>
+  <style>
+    <editor bgColor="@ocean-bg" gutterBg="@ocean-gutter" selectionBg="#BAE6FD" />
+    <surface bgColor="#E0F2FE" sashColor="#7DD3FC" borderColor="#7DD3FC" />
+    <tabStyle inactiveBg="#D1EAFA" inactiveFg="#075985" />
+    <keywords fgColor="#0369A1" />
+    <functions fgColor="#0EA5E9" />
+    <variables fgColor="#0284C7" style="bold" />
+    <rainbow c1="#B45309" c2="#9333EA" c3="#0369A1" c4="#15803D" c5="#BE123C" c6="#C2410C" />
+  </style>
+</RepDevStyle>

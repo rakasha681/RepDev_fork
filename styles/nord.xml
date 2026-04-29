@@ -1,0 +1,35 @@
+<RepDevStyle>
+  <header>
+    <name>Nord</name>
+    <version>1.0</version>
+    <author>RepDev (palette: Arctic Ice Studio)</author>
+    <description><![CDATA[Nord — an arctic, north-bluish color palette. Cool dark background with pastel aurora accents.]]>
+    </description>
+  </header>
+
+  <style>
+    <editor bgColor="#2E3440" fgColor="#D8DEE9" line="#3B4252" token="#434C5E" font="Courier New" fontSize="12" />
+
+    <surface   bgColor="#3B4252" fgColor="#ECEFF4" />
+    <button    bgColor="#5E81AC" fgColor="#ECEFF4" />
+    <selection bgColor="#434C5E" fgColor="#ECEFF4" />
+    <tabStyle  selBg="#2E3440"   selFg="#ECEFF4" />
+
+    <linenumber fgColor="#4C566A" />
+    <comments   fgColor="#616E88" style="italic" />
+    <variables  fgColor="#88C0D0" style="bold" />
+    <functions  fgColor="#88C0D0" style="bold" />
+    <keywords   fgColor="#81A1C1" />
+    <task       fgColor="#EBCB8B" style="bold" />
+
+    <typeChar fgColor="#A3BE8C" />
+    <typeDate fgColor="#A3BE8C" style="bold" />
+
+    <struct1    fgColor="#B48EAD" />
+    <struct1Inv fgColor="#B48EAD" bgColor="#5D1F1F" />
+    <struct2    fgColor="#8FBCBB" />
+    <struct2Inv fgColor="#8FBCBB" bgColor="#5D1F1F" />
+
+    <rainbow c1="#EBCB8B" c2="#B48EAD" c3="#88C0D0" c4="#A3BE8C" c5="#BF616A" c6="#D08770" />
+  </style>
+</RepDevStyle>

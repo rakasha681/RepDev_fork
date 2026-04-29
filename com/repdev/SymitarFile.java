@@ -99,16 +99,20 @@ public class SymitarFile implements Serializable {
 	}
 	
 	public String getData(boolean sourceControl){
-		if( !local )
+		if( !local ) {
+			// Without an active session for this sym we can't fetch from
+			// Symitar — return null so callers fall through their existing
+			// "file couldn't be loaded" handling rather than NPE'ing deep in
+			// SourceControl.getFile / DirectSymitarSession.getFile.
+			if (RepDevMain.SYMITAR_SESSIONS.get(sym) == null)
+				return null;
 			if (sourceControl) {
-				//System.out.println("Using Source Control");
 				SourceControl sc = new SourceControl();
-
 				return sc.getFile(this);
 			} else {
-				//System.out.println("Not Using Source Control");
 				return RepDevMain.SYMITAR_SESSIONS.get(sym).getFile(this);
 			}
+		}
 		else{
 			StringBuilder sb= new  StringBuilder();
 			try {

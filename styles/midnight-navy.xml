@@ -1,0 +1,21 @@
+<RepDevStyle extends="dark">
+  <header>
+    <name>Midnight Navy</name>
+    <version>1.0</version>
+    <author>Gemini</author>
+    <description><![CDATA[Deep navy blue variant. Low fatigue for late-night coding.]]></description>
+  </header>
+  <palette>
+    <color id="navy-bg" value="#0A192F" />
+    <color id="navy-gutter" value="#051020" />
+    <color id="navy-accent" value="#64FFDA" />
+  </palette>
+  <style>
+    <editor bgColor="@navy-bg" gutterBg="@navy-gutter" selectionBg="#172A45" selectionFg="#CCD6F6" />
+    <surface bgColor="#112240" sashColor="#1E3A5F" borderColor="#1E3A5F" />
+    <tabStyle inactiveBg="#0F1F3D" inactiveFg="#8892B0" borderColor="#1E3A5F" />
+    <functions fgColor="#64FFDA" />
+    <keywords fgColor="#F43F5E" />
+    <rainbow c1="#FACC15" c2="#F472B6" c3="#64FFDA" c4="#A7F3D0" c5="#F87171" c6="#FDBA74" />
+  </style>
+</RepDevStyle>

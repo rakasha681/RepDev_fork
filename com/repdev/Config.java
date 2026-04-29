@@ -58,11 +58,12 @@ public class Config implements Serializable {
 	 * different, then a popup will notify the user and will launch the OptionsShell so that
 	 * the users can config the new options.
 	 */
-	public final static int REVISION = 6; // Modify this everytime we add new options to prompt the user.
+	public final static int REVISION = 7; // Modify this everytime we add new options to prompt the user.
 	private int revision=-1;
 	private boolean windowMaximized;
 	private Point windowSize;
 	private boolean listUnusedVars, wrapSearch, caseSensitive, neverTerminateKeepAlive;
+	private boolean includeFoldedSections;
 	private int terminateHour;
 	private int terminateMinute;
 	private int sashHSize, sashVSize;
@@ -72,6 +73,20 @@ public class Config implements Serializable {
 	private boolean fileNameInWinTitle = true;
 	private boolean hostInTitle = true;
 	private boolean viewLineNumbers = true;
+	public static final int DEFAULT_SOFT_LINE_GUIDE_COLUMN = 88;
+	public static final int DEFAULT_HARD_LINE_GUIDE_COLUMN = 132;
+	public static final String DEFAULT_HARD_LINE_GUIDE_COLOR = "C8C8C8";
+	private boolean showSoftLineGuide = true;
+	private boolean showHardLineGuide = false;
+	private int softLineGuideColumn = DEFAULT_SOFT_LINE_GUIDE_COLUMN;
+	private int hardLineGuideColumn = DEFAULT_HARD_LINE_GUIDE_COLUMN;
+	private String hardLineGuideColor = DEFAULT_HARD_LINE_GUIDE_COLOR;
+	private int editorZoomPercent = AppZoom.DEFAULT_PERCENT;
+	private boolean largeIcons = false;
+	private boolean spacesForTabs = true;
+	private boolean splitIndentDoBlocks = false;
+	private boolean blankLineAfterEnd = true;
+	private boolean rainbowBrackets = true;
 	
 	@SuppressWarnings("unused")
 	private int maxQueues = 3; //The largest value this slider goes up to, We should probably scrap this since the max value is 9999 and the error checking code is good enough now that it can detect what needs to be entered. In real life, this can also be non continous large ranges, which complicates things.
@@ -181,6 +196,38 @@ public class Config implements Serializable {
 		return me.tabSize;
 	}
 
+	public static void setSpacesForTabs(boolean b) {
+		me.spacesForTabs = b;
+	}
+
+	public static boolean getSpacesForTabs() {
+		return me.spacesForTabs;
+	}
+
+	public static void setSplitIndentDoBlocks(boolean b) {
+		me.splitIndentDoBlocks = b;
+	}
+
+	public static boolean getSplitIndentDoBlocks() {
+		return me.splitIndentDoBlocks;
+	}
+
+	public static void setBlankLineAfterEnd(boolean b) {
+		me.blankLineAfterEnd = b;
+	}
+
+	public static boolean getBlankLineAfterEnd() {
+		return me.blankLineAfterEnd;
+	}
+
+	public static void setRainbowBrackets(boolean b) {
+		me.rainbowBrackets = b;
+	}
+
+	public static boolean getRainbowBrackets() {
+		return me.rainbowBrackets;
+	}
+
 	public static boolean isRunOptionsAskForPrompts() {
 		return me.runOptionsAskForPrompts;
 	}
@@ -251,10 +298,25 @@ public class Config implements Serializable {
 		me.port = p;
 	}
 	
+	/**
+	 * @deprecated As of 1.8.0a, theme id is owned by
+	 * {@link com.repdev.theme.ThemeService#getCurrentThemeId()}.
+	 * Retained only for one-shot legacy migration in
+	 * {@code ThemeService.migrateOrReadThemeId()} when {@code theme.conf}
+	 * is absent on first run.
+	 */
+	@Deprecated
 	public static String getStyle() {
 	    return me.style;
 	}
-	
+
+	/**
+	 * @deprecated As of 1.8.0a, theme changes go through
+	 * {@link com.repdev.theme.ThemeService#applyTheme(String)} which persists
+	 * to {@code theme.conf}. Retained only for the legacy-rename migration
+	 * path in {@code ThemeService.migrateOrReadThemeId()}.
+	 */
+	@Deprecated
 	public static void setStyle(String s) {
 	    me.style = s;
 	}
@@ -436,6 +498,22 @@ public class Config implements Serializable {
 	public static void setCaseSensitive(boolean b){
 		me.caseSensitive = b;
 	}
+
+	/**
+	 * Return true if Include Folded Sections is checked in the FindReplaceShell dialogue box.
+	 * @return boolean
+	 */
+	public static boolean getIncludeFoldedSections(){
+		return me.includeFoldedSections;
+	}
+
+	/**
+	 * Set this to true if Include Folded Sections is checked in the FindReplaceShell dialogue box.
+	 * @param boolean
+	 */
+	public static void setIncludeFoldedSections(boolean b){
+		me.includeFoldedSections = b;
+	}
 	
 	/**
 	 * Returns the current version in the repdev.conf file
@@ -532,5 +610,77 @@ public class Config implements Serializable {
 
 	public static boolean getViewLineNumbers(){
 		return me.viewLineNumbers;
+	}
+
+	public static void setShowSoftLineGuide(boolean show){
+		me.showSoftLineGuide = show;
+	}
+
+	public static boolean getShowSoftLineGuide(){
+		return me.showSoftLineGuide;
+	}
+
+	public static void setShowHardLineGuide(boolean show){
+		me.showHardLineGuide = show;
+	}
+
+	public static boolean getShowHardLineGuide(){
+		return me.showHardLineGuide;
+	}
+
+	public static void setSoftLineGuideColumn(int column){
+		me.softLineGuideColumn = (column <= 0) ? DEFAULT_SOFT_LINE_GUIDE_COLUMN : column;
+	}
+
+	public static int getSoftLineGuideColumn(){
+		if (me.softLineGuideColumn <= 0) me.softLineGuideColumn = DEFAULT_SOFT_LINE_GUIDE_COLUMN;
+		return me.softLineGuideColumn;
+	}
+
+	public static void setHardLineGuideColumn(int column){
+		me.hardLineGuideColumn = (column <= 0) ? DEFAULT_HARD_LINE_GUIDE_COLUMN : column;
+	}
+
+	public static int getHardLineGuideColumn(){
+		if (me.hardLineGuideColumn <= 0) me.hardLineGuideColumn = DEFAULT_HARD_LINE_GUIDE_COLUMN;
+		return me.hardLineGuideColumn;
+	}
+
+	public static void setHardLineGuideColor(String hex){
+		if (hex == null) {
+			me.hardLineGuideColor = DEFAULT_HARD_LINE_GUIDE_COLOR;
+			return;
+		}
+		String normalized = hex.trim();
+		if (normalized.startsWith("#")) normalized = normalized.substring(1);
+		if (!normalized.matches("[A-Fa-f0-9]{6}")) {
+			me.hardLineGuideColor = DEFAULT_HARD_LINE_GUIDE_COLOR;
+			return;
+		}
+		me.hardLineGuideColor = normalized.toUpperCase();
+	}
+
+	public static String getHardLineGuideColor(){
+		if (me.hardLineGuideColor == null || me.hardLineGuideColor.length() != 6) {
+			me.hardLineGuideColor = DEFAULT_HARD_LINE_GUIDE_COLOR;
+		}
+		return me.hardLineGuideColor;
+	}
+
+	public static void setEditorZoomPercent(int percent){
+		me.editorZoomPercent = AppZoom.clampPercent(percent);
+	}
+
+	public static int getEditorZoomPercent(){
+		if (me.editorZoomPercent == 0) me.editorZoomPercent = AppZoom.DEFAULT_PERCENT;
+		return AppZoom.clampPercent(me.editorZoomPercent);
+	}
+
+	public static void setLargeIcons(boolean large){
+		me.largeIcons = large;
+	}
+
+	public static boolean getLargeIcons(){
+		return me.largeIcons;
 	}
 }

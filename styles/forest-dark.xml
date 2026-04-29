@@ -1,0 +1,20 @@
+<RepDevStyle extends="dark">
+  <header>
+    <name>Forest Dark</name>
+    <version>1.0</version>
+    <author>Gemini</author>
+    <description><![CDATA[Earth tones and mossy greens for a natural, organic feel.]]></description>
+  </header>
+  <palette>
+    <color id="forest-bg" value="#1A1C1A" />
+    <color id="moss-accent" value="#A3E635" />
+  </palette>
+  <style>
+    <editor bgColor="@forest-bg" gutterBg="#151715" selectionBg="#365314" />
+    <surface bgColor="#242624" sashColor="#3F6212" borderColor="#3F6212" />
+    <comments fgColor="#4D7C0F" style="italic" />
+    <keywords fgColor="#BEF264" />
+    <variables fgColor="#ECFCCB" />
+    <rainbow c1="#FDE68A" c2="#FDBA74" c3="#86EFAC" c4="#BEF264" c5="#F0ABFC" c6="#FCA5A5" />
+  </style>
+</RepDevStyle>

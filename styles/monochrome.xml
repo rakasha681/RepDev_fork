@@ -1,28 +1,35 @@
 <RepDevStyle>
   <header>
-    <name>Monochrome RepDev</name>
-    <version>1.0</version>
-    <author>Sean</author>
-    <description><![CDATA[Colors are for the weak.]]>
+    <name>Monochrome</name>
+    <version>2.0</version>
+    <author>RepDev</author>
+    <description><![CDATA[Grayscale theme — no color distraction, just contrast via weight and shade. Good for focused work or printing. Replaces the classic monochrome; the original is available as "legacy-monochrome".]]>
     </description>
   </header>
-  
-  <style>
-    <editor bgColor="F1F1F1" fgColor="1D1D1D" line="D5D5D5" token="ABABAB" font="Courier New" fontSize="11" />
 
-    <linenumber fgColor="#C0C0C0" />
-    <comments fgColor="#969AA1" />
-    <variables fgColor="#515151" style="bold" />    
-    <functions fgColor="#515151" style="bold" />    
-    <keywords fgColor="#515151" />
-    <task fgColor="#404040" style="bold" />
-    
-    <typeChar fgColor="#878787" />
-    <typeDate fgColor="#878787" style="bold" />
-    
-    <struct1 fgColor="#242424" />
-    <struct1Inv fgColor="#242424" bgColor="#7A7A7A" />    
-    <struct2 fgColor="#242424" />
-    <struct2Inv fgColor="#242424" bgColor="#7A7A7A" />    
+  <style>
+    <editor bgColor="#F5F5F5" fgColor="#1A1A1A" line="#E0E0E0" token="#CCCCCC" font="Courier New" fontSize="12" />
+
+    <surface   bgColor="#EAEAEA" fgColor="#1A1A1A" />
+    <button    bgColor="#4A4A4A" fgColor="#FFFFFF" />
+    <selection bgColor="#707070" fgColor="#FFFFFF" />
+    <tabStyle  selBg="#FFFFFF"   selFg="#1A1A1A" />
+
+    <linenumber fgColor="#909090" />
+    <comments   fgColor="#808080" style="italic" />
+    <variables  fgColor="#1A1A1A" style="bold" />
+    <functions  fgColor="#303030" style="bold" />
+    <keywords   fgColor="#000000" style="bold" />
+    <task       fgColor="#505050" style="bold" />
+
+    <typeChar fgColor="#606060" />
+    <typeDate fgColor="#606060" style="bold" />
+
+    <struct1    fgColor="#404040" style="bold" />
+    <struct1Inv fgColor="#404040" bgColor="#E8E8E8" />
+    <struct2    fgColor="#555555" style="bold" />
+    <struct2Inv fgColor="#555555" bgColor="#E8E8E8" />
+
+    <rainbow c1="#202020" c2="#404040" c3="#606060" c4="#808080" c5="#A0A0A0" c6="#505050" />
   </style>
 </RepDevStyle>

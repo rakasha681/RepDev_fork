@@ -1,8 +1,7 @@
 *.class
 helpmenu.conf
 repdev.conf
-
-
+tmp
 #ignore thumbnails created by windows
 Thumbs.db
 #Ignore files build by Visual Studio
@@ -23,6 +22,7 @@ Thumbs.db
 *.cache
 *.ilk
 *.log
+*.zip
 [Bb]in
 [Dd]ebug*/
 *.lib
@@ -32,3 +32,6 @@ obj/
 _ReSharper*/
 [Tt]est[Rr]esult*
 /dist/
+/target/
+/.mvn/repository/
+com/repdev/launcher/launcher.jar

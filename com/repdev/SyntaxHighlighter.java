@@ -19,10 +19,10 @@
 
 package com.repdev;
 
-import java.io.File;
 import java.util.ArrayList;
+import java.util.Arrays;
+import java.util.Stack;
 
-import org.eclipse.swt.SWT;
 import org.eclipse.swt.custom.ExtendedModifyEvent;
 import org.eclipse.swt.custom.ExtendedModifyListener;
 import org.eclipse.swt.custom.LineBackgroundEvent;
@@ -32,70 +32,37 @@ import org.eclipse.swt.custom.LineStyleListener;
 import org.eclipse.swt.custom.StyleRange;
 import org.eclipse.swt.custom.StyledText;
 import org.eclipse.swt.graphics.Color;
-import org.eclipse.swt.graphics.Font;
 import org.eclipse.swt.graphics.RGB;
 import org.eclipse.swt.widgets.Display;
 
 import com.repdev.parser.FunctionLayout;
 import com.repdev.parser.RepgenParser;
 import com.repdev.parser.Token;
-import com.repdev.parser.Variable;
 import com.repdev.parser.Token.SpecialBackgroundReason;
+import com.repdev.theme.ThemeResources;
+import com.repdev.theme.ThemeService;
 
 
 /**
- * Adds the right listeners to a StyledText object to colorize repgens. Uses RepgenParser for the tokenization 
- * @author Jake Poznanski
+ * Adds the right listeners to a StyledText object to colorize repgens. Uses
+ * RepgenParser for the tokenization. Theme state (colors/fonts/styles) is
+ * sourced from {@link ThemeService} — this class holds no theme state of its
+ * own, so switching themes at runtime is just a matter of reapplying the
+ * StyledText foreground/background/font and triggering a redraw.
  *
+ * @author Jake Poznanski
  */
 public class SyntaxHighlighter implements ExtendedModifyListener, LineStyleListener, LineBackgroundListener {
-	//TODO: Style set here
-	private static String styleName = "default";
-
-	private static String FONT_NAME = ""; // "Courier New"; //Fix Font Behavior
-	private static int FONT_SIZE = 0;// = 11;
-
-	private static RGB BACKGROUND = new RGB(255, 255, 255), FOREGROUND = new RGB(0, 0, 0);
-	private static EStyle MAIN = new EStyle(null,null), 
-	NORMAL = new EStyle(null, null), 
-	COMMENTS = new EStyle(new RGB(127, 127, 127), null), 
-	VARIABLES = new EStyle(new RGB(0, 0, 0), null, SWT.BOLD), 
-	FUNCTIONS = new EStyle(new RGB(0, 0, 255), null, SWT.BOLD),
-	KEYWORDS = new EStyle(new RGB(0, 0, 255), null), 
-	TYPE_CHAR = new EStyle(new RGB(255, 0, 0), null), 
-	TYPE_DATE = new EStyle(new RGB(255, 0, 0), null, SWT.BOLD), 
-	STRUCT1 = new EStyle(new RGB(255, 0, 255), null), 
-	STRUCT2 = new EStyle(new RGB(255, 128, 255), null), 
-	STRUCT1_INVALID = new EStyle(new RGB(255, 0, 255), new RGB(128, 0, 0), SWT.NONE), 
-	STRUCT2_INVALID = new EStyle(new RGB(255, 128, 255), new RGB(128, 0, 0), SWT.NONE),
-	TASK = new EStyle(new RGB(64,64,64), null, SWT.BOLD);
-
-	private static Color FORECOLOR = new Color(Display.getCurrent(), FOREGROUND), BACKCOLOR = new Color(Display.getCurrent(), BACKGROUND), BULLETS = new Color(Display.getCurrent(),new RGB(105,105,105));
-	private static Font FONT;
 
 	private RepgenParser parser;
 	private StyledText txt;
 	private SymitarFile file;
 	private int sym;
 
-	//Custom line background, used by the compare composite interface
+	// Custom line background, used by the compare composite interface (not themed)
 	private int[] customLines = null;
-	private static Color customColor, tokenColor;
-	
-	
-	static {
-		loadStyle(Config.getStyle());
-		Font cur = null;
+	private Color compareLineColor;
 
-		try {
-			cur = new Font(Display.getCurrent(), FONT_NAME, FONT_SIZE, SWT.NORMAL);
-		} catch (Exception e) {
-		}
-
-		FONT = cur;
-		
-		
-	}
 
 	public SyntaxHighlighter(RepgenParser parser) {
 		this.parser = parser;
@@ -103,140 +70,90 @@ public class SyntaxHighlighter implements ExtendedModifyListener, LineStyleListe
 		this.file = parser.getFile();
 		this.sym = parser.getSym();
 
-		txt.setForeground(FORECOLOR);
-		txt.setBackground(BACKCOLOR);
-		if(parser.getSym()==Config.getLiveSym() && !this.file.isLocal())
+		applySurfaceColors();
+		if (parser.getSym() == Config.getLiveSym() && !this.file.isLocal())
 			txt.setBackground(new Color(Display.getCurrent(), getRGB(Config.getLiveSymColor())));
 		txt.addExtendedModifyListener(this);
 		txt.addLineStyleListener(this);
-		
-		if (FONT != null)
-			txt.setFont(FONT);
+
+		if (current().editorFont != null)
+			txt.setFont(current().editorFont);
 	}
 
 	/**
-	 * This is used by compare composite to set custom background for sections with diffs
-	 * @param parser
-	 * @param customLineColor
-	 * @param customLines
+	 * Compare-view constructor: attaches a per-instance custom line-background
+	 * color (for diff highlighting) on top of the normal theme.
 	 */
-	public SyntaxHighlighter(RepgenParser parser, Color customLineColor, int[] customLines){
+	public SyntaxHighlighter(RepgenParser parser, Color customLineColor, int[] customLines) {
 		this.parser = parser;
 		this.txt = parser.getTxt();
 		this.file = parser.getFile();
 		this.sym = parser.getSym();
 
-		this.customColor = customLineColor;
+		this.compareLineColor = customLineColor;
 		this.customLines = customLines;
 
-
-		txt.setForeground(FORECOLOR);
-		txt.setBackground(BACKCOLOR);
+		applySurfaceColors();
 		txt.addExtendedModifyListener(this);
 		txt.addLineBackgroundListener(this);
 		txt.addLineStyleListener(this);
-		if (FONT != null)
-			txt.setFont(FONT);
-
-
-
+		if (current().editorFont != null)
+			txt.setFont(current().editorFont);
 	}
 
-	public void highlight(){
+	private void applySurfaceColors() {
+		ThemeResources r = current();
+		txt.setForeground(r.editorForeground);
+		txt.setBackground(r.editorBackground);
+
+		// Item 6: Selection colors
+		if (r.editorSelectionBackground != null) txt.setSelectionBackground(r.editorSelectionBackground);
+		if (r.editorSelectionForeground != null) txt.setSelectionForeground(r.editorSelectionForeground);
+	}
+
+	public void refreshThemeResources() {
+		applySurfaceColors();
+		ThemeResources r = current();
+		if (r.editorFont != null && !r.editorFont.isDisposed()) {
+			txt.setFont(r.editorFont);
+		}
+	}
+
+	private ThemeResources current() {
+		return ThemeService.getInstance().getCurrent();
+	}
+
+	public void highlight() {
 		txt.removeExtendedModifyListener(this);
 		txt.removeLineBackgroundListener(this);
 		txt.removeLineStyleListener(this);
 	}
 
-	public static Color getLineColor(){
-		return customColor;
-	}
-
-	public static Color getBlockMatchColor(){
-		return tokenColor;
-	}
-
-	public Color getBulletColor(){
-		return BULLETS;
-	}
-
-	public static void loadStyle(String styleName){
+	/**
+	 * Legacy entry point. Delegates to {@link ThemeService#applyTheme(String)}
+	 * so any caller that still uses this path transparently participates in the
+	 * new runtime-apply pipeline.
+	 */
+	public static void loadStyle(String styleName) {
 		System.out.println("Loading theme " + styleName + ".xml");
-		try{
-			Style style = new Style( new File("styles\\" + styleName + ".xml" ));
-			FONT_NAME = style.getFontValue("editor", "font"); // "Courier New";
-			FONT_SIZE = style.getFontSize("editor", "fontSize"); // 11;
-			BACKGROUND = style.getColor("editor", "bgColor");  // just... don't...
-			FOREGROUND = style.getColor("editor", "fgColor");  // ask, it's not worth it.
-			FORECOLOR = new Color(Display.getCurrent(), FOREGROUND);
-			BACKCOLOR = new Color(Display.getCurrent(), BACKGROUND);
-			NORMAL = new EStyle(null, null);
-			customColor = new Color(Display.getCurrent(), style.getColor("editor", "line"));
-			tokenColor = new Color(Display.getCurrent(), style.getColor("editor", "token"));
-			COMMENTS = new EStyle(style.getColor("comments", "fgColor"), style.getColor("comments", "bgColor"), style.getStyle("comments")); 
-			VARIABLES = new EStyle(style.getColor("variables", "fgColor"), style.getColor("variables", "bgColor"), style.getStyle("variables")); 
-			FUNCTIONS = new EStyle(style.getColor("functions", "fgColor"), style.getColor("functions", "bgColor"), style.getStyle("functions"));
-			KEYWORDS = new EStyle(style.getColor("keywords", "fgColor"), style.getColor("keywords", "bgColor"), style.getStyle("keywords"));
-			TYPE_CHAR = new EStyle(style.getColor("typeChar", "fgColor"), style.getColor("typeChar", "bgColor"), style.getStyle("typeChar")); 
-			TYPE_DATE = new EStyle(style.getColor("typeDate", "fgColor"), style.getColor("typeDate", "bgColor"), style.getStyle("typeDate")); 
-			STRUCT1 = new EStyle(style.getColor("struct1", "fgColor"), style.getColor("struct1", "bgColor"), style.getStyle("struct1")); 
-			STRUCT2 = new EStyle(style.getColor("struct2", "fgColor"), style.getColor("struct2", "bgColor"), style.getStyle("struct2")); 
-			STRUCT1_INVALID = new EStyle(style.getColor("struct1Inv", "fgColor"), style.getColor("struct1Inv", "bgColor"), style.getStyle("struct1Inv")); 
-			STRUCT2_INVALID = new EStyle(style.getColor("struct2Inv", "fgColor"), style.getColor("struct2Inv", "bgColor"), style.getStyle("struct2Inv"));
-			TASK = new EStyle(style.getColor("task", "fgColor"), style.getColor("task", "bgColor"), style.getStyle("task"));
-			try{
-				BULLETS = new Color(Display.getCurrent(),style.getColor("linenumber","fgColor"));
-			}catch(Exception e){
-				BULLETS = new Color(Display.getCurrent(),new RGB(127, 127, 127));
-			}
-		}catch(Exception e){
-			//System.out.println(e.getMessage());
-			System.out.println("Invalid theme using default");
-			FONT_NAME = "Courier New";
-			FONT_SIZE = 11;
-			BACKGROUND = new RGB(255, 255, 255);
-			FOREGROUND = new RGB(0, 0, 0);
-			NORMAL = new EStyle(null, null);
-			COMMENTS = new EStyle(new RGB(127, 127, 127), null);
-			VARIABLES = new EStyle(new RGB(0, 0, 0), null, SWT.BOLD); 
-			FUNCTIONS = new EStyle(new RGB(0, 0, 255), null, SWT.BOLD);
-			KEYWORDS = new EStyle(new RGB(0, 0, 255), null); 
-			TYPE_CHAR = new EStyle(new RGB(255, 0, 0), null); 
-			TYPE_DATE = new EStyle(new RGB(255, 0, 0), null, SWT.BOLD); 
-			STRUCT1 = new EStyle(new RGB(255, 0, 255), null); 
-			STRUCT2 = new EStyle(new RGB(255, 128, 255), null); 
-			STRUCT1_INVALID = new EStyle(new RGB(255, 0, 255), new RGB(128, 0, 0), SWT.NONE); 
-			STRUCT2_INVALID = new EStyle(new RGB(255, 128, 255), new RGB(128, 0, 0), SWT.NONE);
-			TASK = new EStyle(new RGB(64,64,64), null, SWT.BOLD);
-
-			FORECOLOR = new Color(Display.getCurrent(), FOREGROUND);
-			BACKCOLOR = new Color(Display.getCurrent(), BACKGROUND);
-
-			customColor = new Color(Display.getCurrent(), new RGB(232,242,254));
-			tokenColor = new Color(Display.getCurrent(), new RGB(192,192,192));
-			BULLETS = new Color(Display.getCurrent(),new RGB(127, 127, 127));
-		}
+		ThemeService.getInstance().applyTheme(styleName);
 	}
 
-	private static class EStyle {
-		private Color fcolor = null, bgcolor = null;
-		private int style;
+	/** Current "line" (current-line highlight) color from the active theme. */
+	public static Color getLineColor() {
+		ThemeResources r = ThemeService.getInstance().getCurrent();
+		return r != null ? r.lineHighlight : null;
+	}
 
-		public EStyle(RGB frgb, RGB bgrgb, int style) {
-			if (frgb != null)
-				fcolor = new Color(Display.getCurrent(), frgb);
-			if (bgrgb != null)
-				bgcolor = new Color(Display.getCurrent(), bgrgb);
-			this.style = style;
-		}
+	/** Current "token" (block-match background) color from the active theme. */
+	public static Color getBlockMatchColor() {
+		ThemeResources r = ThemeService.getInstance().getCurrent();
+		return r != null ? r.blockMatch : null;
+	}
 
-		public EStyle(RGB frgb, RGB bgrgb) {
-			this(frgb, bgrgb, SWT.NORMAL);
-		}
-
-		public StyleRange getRange(int start, int len) {
-			return new StyleRange(start, len, fcolor, bgcolor, style);
-		}
+	public Color getBulletColor() {
+		ThemeResources r = current();
+		return r != null ? r.bulletColor : null;
 	}
 
 	public void modifyText(ExtendedModifyEvent e) {
@@ -244,58 +161,124 @@ public class SyntaxHighlighter implements ExtendedModifyListener, LineStyleListe
 	}
 
 	public StyleRange getStyle(Token tok) {
+		ThemeResources r = current();
 		boolean isVar = false;
 		StyleRange range = null;
 
 		if (tok.getCDepth() != 0) {
-			range = COMMENTS.getRange(tok.getStart(), tok.length());
-			for( String taskType: RepgenParser.taskTokens )
-				if( tok.getStr().equals(taskType) && (tok.getAfter() != null && tok.getAfter().getStr().equals(":")) ) range = TASK.getRange(tok.getStart(), tok.length());
+			range = r.comments.getRange(tok.getStart(), tok.length());
+			for (String taskType : RepgenParser.taskTokens)
+				if (tok.getStr().equals(taskType) && (tok.getAfter() != null && tok.getAfter().getStr().equals(":")))
+					range = r.task.getRange(tok.getStart(), tok.length());
 
 		} else if (tok.inString())
-			range = TYPE_CHAR.getRange(tok.getStart(), tok.length());
+			range = r.typeChar.getRange(tok.getStart(), tok.length());
 		else if (tok.inDate())
-			range = TYPE_DATE.getRange(tok.getStart(), tok.length());
-		// Validates the token is a Record before the colon
+			range = r.typeDate.getRange(tok.getStart(), tok.length());
+		// Token is a Record before the colon
 		else if (tok.getAfter() != null && tok.getAfter().getStr().equals(":")) {
 			if (tok.dbRecordValid())
-				range = STRUCT1.getRange(tok.getStart(), tok.length());
+				range = r.struct1.getRange(tok.getStart(), tok.length());
 			else
-				range = STRUCT1_INVALID.getRange(tok.getStart(), tok.length());
-		// Validates the token is a Field or a Field without the Sub Field if the next token is :(
+				range = r.struct1Invalid.getRange(tok.getStart(), tok.length());
+		// Token is a Field (or Field with no sub-field if next is :()
 		} else if (tok.getBefore() != null && tok.getBefore().getStr().equals(":")) {
 			if (tok.dbFieldValid(RepgenParser.getDb().getTreeRecords()) || (tok.dbFieldValidNoSubFld(RepgenParser.getDb().getTreeRecords())))
-				range = STRUCT2.getRange(tok.getStart(), tok.length());
+				range = r.struct2.getRange(tok.getStart(), tok.length());
 			else
-				range = STRUCT2_INVALID.getRange(tok.getStart(), tok.length());
+				range = r.struct2Invalid.getRange(tok.getStart(), tok.length());
 		} else if (FunctionLayout.getInstance().containsName(tok.getStr()) && tok.getAfter() != null && tok.getAfter().getStr().equals("("))
-			range = FUNCTIONS.getRange(tok.getStart(), tok.length());
+			range = r.functions.getRange(tok.getStart(), tok.length());
 		else if (RepgenParser.getKeywords().contains(tok.getStr()))
-			range = KEYWORDS.getRange(tok.getStart(), tok.length());
+			range = r.keywords.getRange(tok.getStart(), tok.length());
 		else if (RepgenParser.getSpecialvars().contains(tok.getStr()))
-			range = VARIABLES.getRange(tok.getStart(), tok.length());
-		for (int i = 0; i < parser.getLvars().size(); i++){
-			Variable var = parser.getLvars().get(i);
-
-			if (var.getName().equals(tok.getStr()))
-				isVar = true;
-		}
+			range = r.variables.getRange(tok.getStart(), tok.length());
+		// O(1) name lookup via parser's cached HashSet view of lvars — replaces
+		// the prior O(V) ArrayList scan that ran per token per paint and was
+		// the dominant cost on large files with many local variables.
+		if (parser.getLvarNames().contains(tok.getStr()))
+			isVar = true;
 
 		if (range == null && isVar)
-			range = VARIABLES.getRange(tok.getStart(), tok.length());
-		else if( range == null ){
-			range = NORMAL.getRange(tok.getStart(), tok.length());	
+			range = r.variables.getRange(tok.getStart(), tok.length());
+		else if (range == null) {
+			range = r.normal.getRange(tok.getStart(), tok.length());
 		}
 
-		if( tok.getSpecialBackground() != null)
+		if (tok.getSpecialBackground() != null)
 			range.background = tok.getSpecialBackground();
 
 		return range;
 	}
 
+	private Color rainbowColor(int depth) {
+		Color[] palette = current().rainbowPalette;
+		if (palette == null || palette.length == 0) return null;
+		int n = palette.length;
+		return palette[((depth % n) + n) % n];
+	}
+
+	// Walk the token stream once and record the rainbow depth for every
+	// (, ), [, ], do, and DO-closing end. Non-rainbow tokens get -1. We only
+	// run this when the feature is on, so compute cost is zero otherwise.
+	private static int[] computeRainbowDepths(ArrayList<Token> ltokens) {
+		int[] depths = new int[ltokens.size()];
+		Arrays.fill(depths, -1);
+
+		int parenDepth = 0;
+		Stack<String> blockStack = new Stack<String>();
+
+		for (int i = 0; i < ltokens.size(); i++) {
+			Token t = ltokens.get(i);
+			String s = t.getStr();
+
+			// Comment brackets: the tokenizer already tracks nesting in cDepth,
+			// so depth-1 gives us 0-based rainbow depth.
+			if ((s.equals("[") || s.equals("]")) && !t.inString() && !t.inDate()) {
+				depths[i] = Math.max(0, t.getCDepth() - 1);
+				continue;
+			}
+
+			// Skip anything not in the normal expression context — strings,
+			// dates, and tokens inside comment brackets have their own colors.
+			if (t.getCDepth() != 0 || t.inString() || t.inDate()) continue;
+
+			if (s.equals("(")) {
+				depths[i] = parenDepth;
+				parenDepth++;
+			} else if (s.equals(":(")) {
+				// :(FIELD) is a sub-field accessor — count it for depth so the
+				// closing ) lines up, but don't paint :( itself.
+				parenDepth++;
+			} else if (s.equals(")")) {
+				parenDepth = Math.max(0, parenDepth - 1);
+				depths[i] = parenDepth;
+			} else if (s.equals("do") && t.isRealHead()) {
+				depths[i] = blockStack.size();
+				blockStack.push("do");
+			} else if (t.isRealHead()) {
+				// procedure / setup / select / define / headers / total /
+				// print title / sort — push so end pops match up, but don't
+				// color them.
+				blockStack.push(s);
+			} else if (s.equals("end") && t.isRealEnd()) {
+				if (!blockStack.isEmpty()) {
+					String popped = blockStack.pop();
+					if (popped.equals("do"))
+						depths[i] = blockStack.size();
+				}
+			}
+		}
+		return depths;
+	}
+
 	public void lineGetStyle(LineStyleEvent event) {
 		ArrayList<Token> ltokens = parser.getLtokens();
 		ArrayList<StyleRange> ranges = new ArrayList<StyleRange>();
+
+		int[] rainbowDepths = null;
+		if (Config.getRainbowBrackets() && !ltokens.isEmpty())
+			rainbowDepths = computeRainbowDepths(ltokens);
 
 		int line = txt.getLineAtOffset(event.lineOffset);
 
@@ -313,48 +296,47 @@ public class SyntaxHighlighter implements ExtendedModifyListener, LineStyleListe
 					break;
 		}
 
-		for (int i = ftoken; i < ltoken; i++){
-			StyleRange range = getStyle(ltokens.get(i));			
+		for (int i = ftoken; i < ltoken; i++) {
+			StyleRange range = getStyle(ltokens.get(i));
+			if (rainbowDepths != null && rainbowDepths[i] >= 0) {
+				Color rc = rainbowColor(rainbowDepths[i]);
+				if (rc != null) range.foreground = rc;
+			}
 			ranges.add(range);
 
-			//If we are a backgroudn highlighted token, and a CODE SNIPPET one, then connect the highlighting over whitespace between tokens
-			if( ltokens.get(i).getBackgroundReason() == SpecialBackgroundReason.CODE_SNIPPET )
-				if( i + 1 < ltoken && ltokens.get(i+1).getBackgroundReason() == SpecialBackgroundReason.CODE_SNIPPET && ltokens.get(i+1).getSnippetVar() == ltokens.get(i).getSnippetVar())
-					ranges.add(new StyleRange(ltokens.get(i).getEnd(),ltokens.get(i+1).getStart()-ltokens.get(i).getEnd(),null,ltokens.get(i).getSpecialBackground()));
+			// Bridge the background-highlight over whitespace between adjacent
+			// snippet-variable tokens so the highlight appears contiguous.
+			if (ltokens.get(i).getBackgroundReason() == SpecialBackgroundReason.CODE_SNIPPET)
+				if (i + 1 < ltoken && ltokens.get(i + 1).getBackgroundReason() == SpecialBackgroundReason.CODE_SNIPPET && ltokens.get(i + 1).getSnippetVar() == ltokens.get(i).getSnippetVar())
+					ranges.add(new StyleRange(ltokens.get(i).getEnd(), ltokens.get(i + 1).getStart() - ltokens.get(i).getEnd(), null, ltokens.get(i).getSpecialBackground()));
 		}
 
 		StyleRange[] rangesArray = new StyleRange[ranges.size()];
-
 		event.styles = ranges.toArray(rangesArray);
 	}
 
-	public void setCustomLines(int[] lines)
-	{
+	public void setCustomLines(int[] lines) {
 		customLines = lines;
 	}
 
 	public void lineGetBackground(LineBackgroundEvent event) {
+		if (customLines == null) return;
 		boolean go = false;
-
-		for( int i : customLines)
-			if( i == txt.getLineAtOffset(event.lineOffset) )
-			{
+		for (int i : customLines)
+			if (i == txt.getLineAtOffset(event.lineOffset)) {
 				go = true;
 				break;
 			}
-
-		if( go ){
-			event.lineBackground = customColor;
+		if (go) {
+			event.lineBackground = compareLineColor;
 		}
 	}
 
 	private RGB getRGB(String rgbHex) {
-		int[] rgb = {0,0,0};
-
-		rgb[0] = Integer.parseInt(rgbHex.substring(0,2), 16);
-		rgb[1] = Integer.parseInt(rgbHex.substring(2,4), 16);
+		int[] rgb = {0, 0, 0};
+		rgb[0] = Integer.parseInt(rgbHex.substring(0, 2), 16);
+		rgb[1] = Integer.parseInt(rgbHex.substring(2, 4), 16);
 		rgb[2] = Integer.parseInt(rgbHex.substring(4), 16);
-
-		return new RGB(rgb[0],rgb[1],rgb[2]);
+		return new RGB(rgb[0], rgb[1], rgb[2]);
 	}
 }

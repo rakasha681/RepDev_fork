@@ -1,0 +1,35 @@
+<RepDevStyle>
+  <header>
+    <name>High Contrast</name>
+    <version>1.0</version>
+    <author>RepDev</author>
+    <description><![CDATA[High-contrast dark theme for accessibility. Pure black surfaces with saturated, well-differentiated token colors. Use this if you need the strongest possible text/background contrast or are working in bright lighting conditions.]]>
+    </description>
+  </header>
+
+  <style>
+    <editor bgColor="#000000" fgColor="#FFFFFF" line="#1F1F1F" token="#3F3F3F" font="Courier New" fontSize="12" />
+
+    <surface   bgColor="#000000" fgColor="#FFFFFF" />
+    <button    bgColor="#1F1F1F" fgColor="#FFFFFF" />
+    <selection bgColor="#FFFF00" fgColor="#000000" />
+    <tabStyle  selBg="#1F1F1F"   selFg="#FFFF00" />
+
+    <linenumber fgColor="#C0C0C0" />
+    <comments   fgColor="#7CA668" />
+    <variables  fgColor="#00FFFF" style="bold" />
+    <functions  fgColor="#FFFF00" style="bold" />
+    <keywords   fgColor="#569CD6" style="bold" />
+    <task       fgColor="#FFA500" style="bold" />
+
+    <typeChar fgColor="#FF8080" style="bold" />
+    <typeDate fgColor="#FF8080" style="bold" />
+
+    <struct1    fgColor="#FF69B4" style="bold" />
+    <struct1Inv fgColor="#FF69B4" bgColor="#7F0000" />
+    <struct2    fgColor="#00FF00" style="bold" />
+    <struct2Inv fgColor="#00FF00" bgColor="#7F0000" />
+
+    <rainbow c1="#FFFF00" c2="#FF00FF" c3="#00FFFF" c4="#00FF00" c5="#FF6060" c6="#FFA500" />
+  </style>
+</RepDevStyle>

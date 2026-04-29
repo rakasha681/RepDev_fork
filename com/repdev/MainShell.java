@@ -31,8 +31,6 @@ import java.util.Iterator;
 import java.util.List;
 import java.util.Stack;
 
-import javax.xml.parsers.DocumentBuilder;
-import javax.xml.parsers.DocumentBuilderFactory;
 
 import org.eclipse.swt.SWT;
 import org.eclipse.swt.custom.CTabFolder;
@@ -74,10 +72,8 @@ import org.eclipse.swt.graphics.Cursor;
 import org.eclipse.swt.graphics.Font;
 import org.eclipse.swt.graphics.GC;
 import org.eclipse.swt.graphics.Image;
-import org.eclipse.swt.graphics.ImageData;
-import org.eclipse.swt.graphics.PaletteData;
+import org.eclipse.swt.graphics.ImageGcDrawer;
 import org.eclipse.swt.graphics.Point;
-import org.eclipse.swt.graphics.RGB;
 import org.eclipse.swt.graphics.Rectangle;
 import org.eclipse.swt.layout.FillLayout;
 import org.eclipse.swt.layout.FormAttachment;
@@ -110,16 +106,14 @@ import org.eclipse.swt.widgets.ToolBar;
 import org.eclipse.swt.widgets.ToolItem;
 import org.eclipse.swt.widgets.Tree;
 import org.eclipse.swt.widgets.TreeItem;
-import org.w3c.dom.Document;
 import org.w3c.dom.Element;
-import org.w3c.dom.NamedNodeMap;
-import org.w3c.dom.Node;
-import org.w3c.dom.NodeList;
 
 import com.repdev.parser.Error;
 import com.repdev.parser.RepgenParser;
 import com.repdev.parser.Task;
-import com.sun.org.apache.xpath.internal.operations.Bool;
+
+// no longer supported in modern java versions, Boolean is provide by jdk
+//import com.sun.org.apache.xpath.internal.operations.Bool;
 //import com.sun.xml.internal.ws.util.xml.NodeListIterator;
 
 /**
@@ -135,6 +129,7 @@ import com.sun.org.apache.xpath.internal.operations.Bool;
 public class MainShell {
 	private static final int MIN_COL_WIDTH = 75, MIN_COMP_SIZE = 65;
 	private CTabFolder mainfolder;
+	private CTabItem errorsTab, tasksTab;
 	private Display display;
 	//private Shell shell;
 	private Tree tree;
@@ -150,6 +145,7 @@ public class MainShell {
 	private CoolBar coolBar;
 	private ToolBar editorBar;
 	private ToolItem savetb, install, print, run, hltoggle, fscreen;
+	private ToolItem addSymTool, addFolderTool, addProjTool, newFileTool, remItemTool, importFileTool, openFileToolbarTool;
 	private ArrayList<CoolItem> coolItems; // <-- may not be needed, keep for
 	// future stuff though
 
@@ -160,13 +156,81 @@ public class MainShell {
 	private Composite statusBar;
 	private Label lineColumn;
 
+	private com.repdev.theme.ThemeChangedListener themeListener;
+
 	public MainShell(Display display) {
 		this.display = display;
 		createShell();
+		installThemeListener();
 	}
 
 	public void open() {
 		shell.open();
+	}
+
+	/** Walk every open editor tab and refresh its gutter (line-number column + fold triangles).
+	 *  Called when the "Show line numbers" setting changes so the toggle applies live. */
+	public void refreshAllGutters() {
+		if (mainfolder == null || mainfolder.isDisposed()) return;
+		for (CTabItem item : mainfolder.getItems()) {
+			if (item.getControl() instanceof EditorComposite) {
+				((EditorComposite) item.getControl()).refreshGutter();
+			}
+		}
+	}
+
+	public void refreshAllEditorsThemeResources() {
+		if (mainfolder == null || mainfolder.isDisposed()) return;
+		for (CTabItem item : mainfolder.getItems()) {
+			if (item.getControl() instanceof EditorComposite) {
+				((EditorComposite) item.getControl()).refreshThemeResources();
+			}
+		}
+	}
+
+	private void installThemeListener() {
+		themeListener = new com.repdev.theme.ThemeChangedListener() {
+			public void themeChanged(com.repdev.theme.ThemeResources r) {
+				applyThemeToShell(r);
+			}
+		};
+		com.repdev.theme.ThemeService.getInstance().addListener(themeListener);
+		// Run once immediately so the main shell picks up the active theme at startup.
+		applyThemeToShell(com.repdev.theme.ThemeService.getInstance().getCurrent());
+		shell.addDisposeListener(new org.eclipse.swt.events.DisposeListener() {
+			public void widgetDisposed(org.eclipse.swt.events.DisposeEvent e) {
+				if (themeListener != null)
+					com.repdev.theme.ThemeService.getInstance().removeListener(themeListener);
+			}
+		});
+	}
+
+	private void applyThemeToShell(com.repdev.theme.ThemeResources r) {
+		if (r == null || shell == null || shell.isDisposed()) return;
+		// Walk recursively — covers the project tree, error/task tables,
+		// status bar children, and any other descendants. Widgets that manage
+		// their own theming (StyledText, Button) are skipped by the walker.
+		com.repdev.theme.ShellTheme.apply(shell, r);
+		refreshAllEditorsThemeResources();
+		shell.redraw();
+	}
+
+	private void applyEditorZoom(int percent) {
+		Config.setEditorZoomPercent(percent);
+		com.repdev.theme.ThemeService.getInstance().applyTheme(com.repdev.theme.ThemeService.getInstance().getCurrentThemeId());
+		setLineColumn();
+	}
+
+	private void zoomIn() {
+		applyEditorZoom(AppZoom.zoomIn(Config.getEditorZoomPercent()));
+	}
+
+	private void zoomOut() {
+		applyEditorZoom(AppZoom.zoomOut(Config.getEditorZoomPercent()));
+	}
+
+	private void resetZoom() {
+		applyEditorZoom(AppZoom.reset());
 	}
 
 	public boolean isDisposed() {
@@ -861,38 +925,38 @@ public class MainShell {
 		self.setLayout(new FormLayout());
 		ToolBar toolbar = new ToolBar(coolBar, SWT.FLAT | SWT.HORIZONTAL);
 
-		final ToolItem addSym = new ToolItem(toolbar, SWT.PUSH);
-		addSym.setImage(RepDevMain.smallSymAddImage);
-		addSym.setToolTipText("Add a new Sym to this list.");
+		addSymTool = new ToolItem(toolbar, SWT.PUSH);
+		addSymTool.setImage(RepDevMain.smallSymAddImage);
+		addSymTool.setToolTipText("Add a new Sym to this list.");
 
-		final ToolItem addFolder = new ToolItem(toolbar, SWT.PUSH);
-		addFolder.setImage(RepDevMain.smallFolderAddImage);
-		addFolder.setToolTipText("Mounts a local folder to store files and projects.");
+		addFolderTool = new ToolItem(toolbar, SWT.PUSH);
+		addFolderTool.setImage(RepDevMain.smallFolderAddImage);
+		addFolderTool.setToolTipText("Mounts a local folder to store files and projects.");
 
-		final ToolItem addProj = new ToolItem(toolbar, SWT.PUSH);
-		addProj.setImage(RepDevMain.smallProjectAddImage);
-		addProj.setToolTipText("Create a new project in the selected Sym.");
-		addProj.setEnabled(false);
+		addProjTool = new ToolItem(toolbar, SWT.PUSH);
+		addProjTool.setImage(RepDevMain.smallProjectAddImage);
+		addProjTool.setToolTipText("Create a new project in the selected Sym.");
+		addProjTool.setEnabled(false);
 
-		final ToolItem newFile = new ToolItem(toolbar, SWT.PUSH);
-		newFile.setImage(RepDevMain.smallFileAddImage);
-		newFile.setToolTipText("Create a new file in your current project.");
-		newFile.setEnabled(false);
+		newFileTool = new ToolItem(toolbar, SWT.PUSH);
+		newFileTool.setImage(RepDevMain.smallFileAddImage);
+		newFileTool.setToolTipText("Create a new file in your current project.");
+		newFileTool.setEnabled(false);
 
-		final ToolItem remItem = new ToolItem(toolbar, SWT.PUSH);
-		remItem.setImage(RepDevMain.smallDeleteImage);
-		remItem.setToolTipText("Remove the selected explorer items.");
-		remItem.setEnabled(false);
+		remItemTool = new ToolItem(toolbar, SWT.PUSH);
+		remItemTool.setImage(RepDevMain.smallDeleteImage);
+		remItemTool.setToolTipText("Remove the selected explorer items.");
+		remItemTool.setEnabled(false);
 
-		final ToolItem importFile = new ToolItem(toolbar, SWT.PUSH);
-		importFile.setImage(RepDevMain.smallImportImage);
-		importFile.setToolTipText("Import Existing Files to your current project.");
-		importFile.setEnabled(false);
+		importFileTool = new ToolItem(toolbar, SWT.PUSH);
+		importFileTool.setImage(RepDevMain.smallImportImage);
+		importFileTool.setToolTipText("Import Existing Files to your current project.");
+		importFileTool.setEnabled(false);
 
-		final ToolItem openFileToolbar = new ToolItem(toolbar, SWT.PUSH);
-		openFileToolbar.setImage(RepDevMain.smallFileOpenImage);
-		openFileToolbar.setToolTipText("Open a file on the symitar server that's not in a project");
-		openFileToolbar.setEnabled(false);
+		openFileToolbarTool = new ToolItem(toolbar, SWT.PUSH);
+		openFileToolbarTool.setImage(RepDevMain.smallFileOpenImage);
+		openFileToolbarTool.setToolTipText("Open a file on the symitar server that's not in a project");
+		openFileToolbarTool.setEnabled(false);
 
 		toolbar.setData("explorer");
 		addBar(toolbar);
@@ -1831,7 +1895,7 @@ public class MainShell {
 			public void menuShown(MenuEvent e) {
 				// Disable everything but remove first, then add menu options
 				// later
-				newFile.setEnabled(false);
+				newFileTool.setEnabled(false);
 				newProjectFile.setEnabled(false);
 				importFilem.setEnabled(false);
 
@@ -1999,35 +2063,35 @@ public class MainShell {
 			public void handleEvent(Event e) {
 				TreeItem[] selection = tree.getSelection();
 
-				remItem.setEnabled(selection.length != 0);
+				remItemTool.setEnabled(selection.length != 0);
 
 				if (selection.length != 1) {
-					addProj.setEnabled(false);
-					importFile.setEnabled(false);
-					newFile.setEnabled(false);
-					openFileToolbar.setEnabled(false);
+					addProjTool.setEnabled(false);
+					importFileTool.setEnabled(false);
+					newFileTool.setEnabled(false);
+					openFileToolbarTool.setEnabled(false);
 					return;
 				} else {
-					openFileToolbar.setEnabled(true);
+					openFileToolbarTool.setEnabled(true);
 				}
 
 				Object data = ((TreeItem) selection[0]).getData();
 				if (data instanceof Integer) {
-					addProj.setEnabled(true);
-					importFile.setEnabled(false);
-					newFile.setEnabled(false);
+					addProjTool.setEnabled(true);
+					importFileTool.setEnabled(false);
+					newFileTool.setEnabled(false);
 				} else if (data instanceof String) {
-					addProj.setEnabled(true);
-					importFile.setEnabled(false);
-					newFile.setEnabled(false);
+					addProjTool.setEnabled(true);
+					importFileTool.setEnabled(false);
+					newFileTool.setEnabled(false);
 				} else if (data instanceof Project) {
-					addProj.setEnabled(true);
-					importFile.setEnabled(true);
-					newFile.setEnabled(true);
+					addProjTool.setEnabled(true);
+					importFileTool.setEnabled(true);
+					newFileTool.setEnabled(true);
 				} else if (data instanceof SymitarFile) {
-					addProj.setEnabled(true);
-					importFile.setEnabled(true);
-					newFile.setEnabled(true);
+					addProjTool.setEnabled(true);
+					importFileTool.setEnabled(true);
+					newFileTool.setEnabled(true);
 				}
 			}
 		});
@@ -2038,39 +2102,39 @@ public class MainShell {
 			}
 		});
 
-		addSym.addSelectionListener(new SelectionAdapter() {
+		addSymTool.addSelectionListener(new SelectionAdapter() {
 			public void widgetSelected(SelectionEvent e) {
 				addSym();
 			}
 		});
 
-		addFolder.addSelectionListener(new SelectionAdapter() {
+		addFolderTool.addSelectionListener(new SelectionAdapter() {
 			public void widgetSelected(SelectionEvent e) {
 				addFolder();
 			}
 		});
 
-		addProj.addSelectionListener(new SelectionAdapter() {
+		addProjTool.addSelectionListener(new SelectionAdapter() {
 			public void widgetSelected(SelectionEvent e) {
 				addProject();
 			}
 		});
-		importFile.addSelectionListener(new SelectionAdapter() {
+		importFileTool.addSelectionListener(new SelectionAdapter() {
 			public void widgetSelected(SelectionEvent e) {
 				importFiles();
 			}
 		});
-		remItem.addSelectionListener(new SelectionAdapter() {
+		remItemTool.addSelectionListener(new SelectionAdapter() {
 			public void widgetSelected(SelectionEvent e) {
 				removeItem(tree.getSelection());
 			}
 		});
-		newFile.addSelectionListener(new SelectionAdapter() {
+		newFileTool.addSelectionListener(new SelectionAdapter() {
 			public void widgetSelected(SelectionEvent e) {
 				newFileInProject();
 			}
 		});
-		openFileToolbar.addSelectionListener(new SelectionAdapter() {
+		openFileToolbarTool.addSelectionListener(new SelectionAdapter() {
 			public void widgetSelected(SelectionEvent e) {
 				showFileOpenMenu();
 			}
@@ -2262,7 +2326,8 @@ public class MainShell {
 		Color bgcolor;
 		
 		try {
-			Style style = new Style(new File("styles\\" + Config.getStyle() + ".xml"));
+			String themeId = com.repdev.theme.ThemeService.getInstance().getCurrentThemeId();
+			Style style = new Style(new File(RepDevMain.installRoot() + "styles" + File.separator + themeId + ".xml"));
 			bgcolor = new Color(Display.getCurrent(), style.getColor("editor", "line"));
 		} catch (Exception e) {
 			bgcolor = new Color(Display.getCurrent(), 220, 220, 220);
@@ -2472,34 +2537,30 @@ public class MainShell {
 		return isItemLocal(tree.getSelection()[0]);
 	}
 
-	private Image drawSymOverImage(Image img, int sym) {
-		Image image = new Image(display, 16, 16);
+	private Image drawSymOverImage(final Image img, final int sym) {
+		return new Image(display, new ImageGcDrawer() {
+			public void drawOn(GC gc, int width, int height) {
+				gc.drawImage(img, 0, 0);
+				gc.setForeground(gc.getDevice().getSystemColor(SWT.COLOR_DARK_RED));
+				gc.setAlpha(254);
 
-		GC gc = new GC(image);
-		gc.drawImage(img, 0, 0);
-		gc.setForeground(Display.getCurrent().getSystemColor(SWT.COLOR_DARK_RED));
-		gc.setAlpha(254);
+				String text = String.valueOf(sym);
+				Font font = null;
+				try {
+					int size = sym < 100 ? 8 : 7;
+					font = new Font(gc.getDevice(), "Courier New", size, SWT.BOLD);
+					gc.setFont(font);
+					int x = sym < 100 ? 16 - 7 * text.length() : 0;
+					gc.drawString(text, x, 0, true);
+				} finally {
+					if (font != null && !font.isDisposed()) font.dispose();
+				}
+			}
 
-		if (sym < 100) {
-			gc.setFont(new Font(Display.getCurrent(), "Courier New", 8, SWT.BOLD));
-			gc.drawString(String.valueOf(sym), 16 - 7 * String.valueOf(sym).length(), 0, true);
-		} else {
-			gc.setFont(new Font(Display.getCurrent(), "Courier New", 7, SWT.BOLD));
-			gc.drawString(String.valueOf(sym), 0, 0, true);
-		}
-		gc.dispose();
-
-		ImageData imageData = image.getImageData();
-		PaletteData palette = new PaletteData(new RGB[] { new RGB(0, 0, 0), new RGB(0xFF, 0xFF, 0xFF), });
-		ImageData maskData = new ImageData(16, 16, 1, palette);
-		Image mask = new Image(display, maskData);
-		gc = new GC(mask);
-		gc.setBackground(Display.getCurrent().getSystemColor(SWT.COLOR_WHITE));
-		gc.fillRectangle(0, 0, 16, 16);
-		gc.dispose();
-		maskData = mask.getImageData();
-
-		return new Image(display, imageData, maskData);
+			public int getGcStyle() {
+				return SWT.TRANSPARENT;
+			}
+		}, 16, 16);
 	}
 
 	public Image getFileImage(SymitarFile file) {
@@ -2564,21 +2625,6 @@ public class MainShell {
 		
 	}
 	// Draw Rectangle Around Destination Tab End
-	public static Color HextoColor(String hex) {
-		if (hex == null || hex.equals("")) {return null;}
-		hex = hex.replaceAll("#", "");
-		
-		while (hex.length() < 6) {
-			hex = "0" + hex;
-		}
-		
-		String red = "0x"+hex.substring(0, 2);
-		String green = "0x"+hex.substring(2, 4);
-		String blue = "0x"+hex.substring(4, 6);
-		return new Color(null, Integer.decode(red).intValue(), Integer.decode(green).intValue(), Integer.decode(blue).intValue() );
-		//return new RGB(Integer.decode(red).intValue(), Integer.decode(green).intValue(), Integer.decode(blue).intValue());
-	}
-	Color titleForeColor = null, titleBackColor1 = null, titleBackColor2 = null;
 	private void createEditorPane(Composite self) {
 		self.setLayout(new FillLayout());
 		mainfolder = new CTabFolder(self,  SWT.TOP | SWT.BORDER);
@@ -2589,32 +2635,6 @@ public class MainShell {
 		Menu tabContextMenu = new Menu(mainfolder);
 		mainfolder.setMenu(tabContextMenu);
 
-		// XP Theme Color Tabs With Gradient start
-		  try {
-				  File file = new File("styles\\" + Config.getStyle() + ".xml");
-				  DocumentBuilderFactory dbf = DocumentBuilderFactory.newInstance();
-				  DocumentBuilder db = dbf.newDocumentBuilder();
-				  Document doc = db.parse(file);
-				  doc.getDocumentElement().normalize();
-				  NodeList nodeLst = doc.getElementsByTagName("tabStyle");
-				  if(nodeLst.getLength() > 0){
-					  NamedNodeMap attributes = nodeLst.item(0).getAttributes();
-					  titleForeColor = HextoColor(attributes.getNamedItem("fgColor").getTextContent());
-					  titleBackColor1 = HextoColor(attributes.getNamedItem("bgcolor1").getTextContent());
-					  titleBackColor2 = HextoColor(attributes.getNamedItem("bgcolor2").getTextContent());
-				  }
-			  } catch (Exception e) {
-				  e.printStackTrace();
-			  }
-			  if(titleForeColor == null || titleBackColor1 == null || titleBackColor2 == null){
-				titleForeColor = display.getSystemColor(SWT.COLOR_TITLE_FOREGROUND);
-				titleBackColor1 = display.getSystemColor(SWT.COLOR_TITLE_BACKGROUND);
-				titleBackColor2 = display.getSystemColor(SWT.COLOR_TITLE_BACKGROUND_GRADIENT);
-			  }
-		mainfolder.setSelectionForeground(titleForeColor);
-		mainfolder.setSelectionBackground(new Color[] { titleBackColor1,titleBackColor2 }, new int[] { 100 }, true);
-		//  XP Theme Color Tabs With Gradient End
-		
 		// Drag tab code start
 		// Close tab with middle mouse code start
 		// Tab history code start
@@ -3006,13 +3026,10 @@ public class MainShell {
 		CTabFolder folder = new CTabFolder(self, SWT.TOP | SWT.BORDER);
 		folder.setLayout(new FillLayout());
 		folder.setSimple(false);
-		// Apply tab theme/style
-		folder.setSelectionForeground(titleForeColor);
-		folder.setSelectionBackground(new Color[] { titleBackColor1,titleBackColor2 }, new int[] { 100 }, true);
 		
-		final CTabItem errors = new CTabItem(folder, SWT.NONE);
-		errors.setText("&Errors");
-		errors.setImage(RepDevMain.smallErrorsImage);
+		errorsTab = new CTabItem(folder, SWT.NONE);
+		errorsTab.setText("&Errors");
+		errorsTab.setImage(RepDevMain.smallErrorsImage);
 		tblErrors = new Table(folder, SWT.MULTI | SWT.FULL_SELECTION);
 		createTable(tblErrors);
 		tblErrors.addSelectionListener(new SelectionAdapter() {
@@ -3049,11 +3066,11 @@ public class MainShell {
 			}
 		});
 
-		errors.setControl(tblErrors);
+		errorsTab.setControl(tblErrors);
 
-		final CTabItem tasks = new CTabItem(folder, SWT.NONE);
-		tasks.setText("&Tasks");
-		tasks.setImage(RepDevMain.smallTasksImage);
+		tasksTab = new CTabItem(folder, SWT.NONE);
+		tasksTab.setText("&Tasks");
+		tasksTab.setImage(RepDevMain.smallTasksImage);
 		tblTasks = new Table(folder, SWT.MULTI | SWT.FULL_SELECTION);
 		createTable(tblTasks);
 
@@ -3091,9 +3108,9 @@ public class MainShell {
 			}
 		});
 
-		tasks.setControl(tblTasks);
+		tasksTab.setControl(tblTasks);
 
-		folder.setSelection(errors);
+		folder.setSelection(errorsTab);
 	}
 	SymitarFile currNavFile;
 	int currNavLine;
@@ -3249,6 +3266,8 @@ public class MainShell {
 		fileItem.setText("&File");
 		MenuItem editItem = new MenuItem(bar, SWT.CASCADE);
 		editItem.setText("&Edit");
+		MenuItem viewItem = new MenuItem(bar, SWT.CASCADE);
+		viewItem.setText("&View");
 		MenuItem toolsItem = new MenuItem(bar, SWT.CASCADE);
 		toolsItem.setText("&Tools");
 		MenuItem helpItem = new MenuItem(bar, SWT.CASCADE);
@@ -3262,6 +3281,8 @@ public class MainShell {
 		helpItem.setMenu(helpMenu);
 		Menu editMenu = new Menu(shell, SWT.DROP_DOWN);
 		editItem.setMenu(editMenu);
+		Menu viewMenu = new Menu(shell, SWT.DROP_DOWN);
+		viewItem.setMenu(viewMenu);
 
 		final MenuItem fileSave = new MenuItem(fileMenu, SWT.PUSH);
 		fileSave.setText("&Save\tCTRL+S");
@@ -3633,6 +3654,45 @@ public class MainShell {
 
 		});
 
+		final MenuItem viewZoomIn = new MenuItem(viewMenu, SWT.PUSH);
+		viewZoomIn.setText("Zoom In\tCtrl++");
+		viewZoomIn.setAccelerator(SWT.MOD1 | '=');
+		viewZoomIn.addSelectionListener(new SelectionAdapter() {
+			public void widgetSelected(SelectionEvent e) {
+				zoomIn();
+			}
+		});
+
+		final MenuItem viewZoomOut = new MenuItem(viewMenu, SWT.PUSH);
+		viewZoomOut.setText("Zoom Out\tCtrl+-");
+		viewZoomOut.setAccelerator(SWT.MOD1 | '-');
+		viewZoomOut.addSelectionListener(new SelectionAdapter() {
+			public void widgetSelected(SelectionEvent e) {
+				zoomOut();
+			}
+		});
+
+		final MenuItem viewResetZoom = new MenuItem(viewMenu, SWT.PUSH);
+		viewResetZoom.setText("Reset Zoom\tCtrl+0");
+		viewResetZoom.setAccelerator(SWT.MOD1 | '0');
+		viewResetZoom.addSelectionListener(new SelectionAdapter() {
+			public void widgetSelected(SelectionEvent e) {
+				resetZoom();
+			}
+		});
+
+		viewMenu.addMenuListener(new MenuListener() {
+			public void menuHidden(MenuEvent e) {
+			}
+
+			public void menuShown(MenuEvent e) {
+				int zoom = Config.getEditorZoomPercent();
+				viewZoomIn.setEnabled(zoom < AppZoom.MAX_PERCENT);
+				viewZoomOut.setEnabled(zoom > AppZoom.MIN_PERCENT);
+				viewResetZoom.setEnabled(zoom != AppZoom.DEFAULT_PERCENT);
+			}
+		});
+
 		final MenuItem toolsOptions = new MenuItem(toolsMenu, SWT.PUSH);
 		toolsOptions.setText("&Options");
 		toolsOptions.setImage(RepDevMain.smallOptionsImage);
@@ -3866,7 +3926,7 @@ public class MainShell {
 			parser.setReparse(false);
 		
 		// Do the replace
-		txt.setText(txt.getText().replaceAll("\t", EditorComposite.getTabStr()));
+		txt.setText(txt.getText().replaceAll("\t", Indenter.getTabStr()));
 		
 		if( parser != null){
 			parser.setReparse(true);
@@ -3884,8 +3944,144 @@ public class MainShell {
 		item.setControl(b);
 		Point size = b.computeSize(SWT.DEFAULT, SWT.DEFAULT);
 		item.setMinimumSize(size);
+		item.setPreferredSize(size);
+		item.setSize(item.computeSize(size.x, size.y));
 
 		coolItems.add(item);
+	}
+
+	public void refreshToolbarImages() {
+		setToolImage(addSymTool, RepDevMain.smallSymAddImage);
+		setToolImage(addFolderTool, RepDevMain.smallFolderAddImage);
+		setToolImage(addProjTool, RepDevMain.smallProjectAddImage);
+		setToolImage(newFileTool, RepDevMain.smallFileAddImage);
+		setToolImage(remItemTool, RepDevMain.smallDeleteImage);
+		setToolImage(importFileTool, RepDevMain.smallImportImage);
+		setToolImage(openFileToolbarTool, RepDevMain.smallFileOpenImage);
+		setToolImage(savetb, RepDevMain.smallActionSaveImage);
+		setToolImage(install, RepDevMain.smallInstallImage);
+		setToolImage(run, RepDevMain.smallRunImage);
+		setToolImage(print, RepDevMain.smallPrintImage);
+		setToolImage(hltoggle, RepDevMain.smallHighlight);
+		setToolImage(fscreen, fullscreen ? RepDevMain.smallIndentMoreImage : RepDevMain.smallIndentLessImage);
+
+		if (coolItems != null) {
+			for (int i = 0; i < coolItems.size(); i++) {
+				CoolItem item = (CoolItem) coolItems.get(i);
+				if (item == null || item.isDisposed() || !(item.getControl() instanceof ToolBar)) continue;
+				ToolBar bar = (ToolBar) item.getControl();
+				bar.pack();
+				Point size = bar.computeSize(SWT.DEFAULT, SWT.DEFAULT);
+				item.setMinimumSize(size);
+				item.setPreferredSize(size);
+			}
+		}
+		if (coolBar != null && !coolBar.isDisposed()) coolBar.pack();
+		if (shell != null && !shell.isDisposed()) shell.layout(true, true);
+	}
+
+	public void refreshIconPresentation() {
+		if (shell != null && !shell.isDisposed()) shell.setRedraw(false);
+		RepDevMain.reloadImages();
+		rebuildNativeIconControls();
+		com.repdev.theme.ThemeResources currentTheme = com.repdev.theme.ThemeService.getInstance().getCurrent();
+		if (currentTheme != null) {
+			com.repdev.theme.ShellTheme.apply(shell, currentTheme);
+		}
+		refreshTabImages();
+		createMenuDefault();
+		if (tree != null && !tree.isDisposed()) tree.redraw();
+		if (mainfolder != null && !mainfolder.isDisposed()) mainfolder.redraw();
+		if (shell != null && !shell.isDisposed()) {
+			shell.setRedraw(true);
+			shell.layout(true, true);
+			shell.redraw();
+		}
+	}
+
+	private void rebuildNativeIconControls() {
+		disposeCoolBarControls();
+		disposeExplorerTree();
+		createExplorer(left);
+		createEditorBar();
+		coolBar.pack();
+		refreshToolbarImages();
+		refreshTreeImages();
+		shell.layout(true, true);
+	}
+
+	private void disposeExplorerTree() {
+		if (tree != null && !tree.isDisposed()) {
+			tree.dispose();
+			tree = null;
+		}
+	}
+
+	private void disposeCoolBarControls() {
+		if (coolBar != null && !coolBar.isDisposed()) {
+			CoolItem[] items = coolBar.getItems();
+			for (int i = 0; i < items.length; i++) {
+				Control control = items[i].getControl();
+				if (control != null && !control.isDisposed()) control.dispose();
+				if (!items[i].isDisposed()) items[i].dispose();
+			}
+		}
+		if (coolItems != null) coolItems.clear();
+		editorBar = null;
+		savetb = install = print = run = hltoggle = fscreen = null;
+		addSymTool = addFolderTool = addProjTool = newFileTool = remItemTool = importFileTool = openFileToolbarTool = null;
+	}
+
+	private void refreshTreeImages() {
+		if (tree == null || tree.isDisposed()) return;
+		TreeItem[] roots = tree.getItems();
+		for (int i = 0; i < roots.length; i++) {
+			refreshTreeItemImage(roots[i]);
+		}
+	}
+
+	private void refreshTreeItemImage(TreeItem item) {
+		if (item == null || item.isDisposed()) return;
+		Object data = item.getData();
+		if (data instanceof Integer) {
+			Integer sym = (Integer) data;
+			SymitarSession session = RepDevMain.SYMITAR_SESSIONS.get(sym);
+			item.setImage((session != null && session.isConnected()) ? RepDevMain.smallSymOnImage : RepDevMain.smallSymImage);
+		} else if (data instanceof String) {
+			item.setImage(RepDevMain.smallFolderImage);
+		} else if (data instanceof Project) {
+			item.setImage(RepDevMain.smallProjectImage);
+		} else if (data instanceof SymitarFile) {
+			item.setImage(getFileImage((SymitarFile) data));
+		}
+		TreeItem[] children = item.getItems();
+		for (int i = 0; i < children.length; i++) {
+			refreshTreeItemImage(children[i]);
+		}
+	}
+
+	private void refreshTabImages() {
+		if (mainfolder != null && !mainfolder.isDisposed()) {
+			CTabItem[] items = mainfolder.getItems();
+			for (int i = 0; i < items.length; i++) {
+				CTabItem item = items[i];
+				if (item.isDisposed()) continue;
+				if (item.getControl() instanceof EditorComposite) {
+					item.setImage(getFileImage(((EditorComposite) item.getControl()).getFile()));
+				} else if (item.getControl() instanceof ReportComposite) {
+					SymitarFile file = ((ReportComposite) item.getControl()).getFile();
+					item.setImage(file != null ? drawSymOverImage(RepDevMain.smallReportsImage, file.getSym()) : RepDevMain.smallReportsImage);
+				} else if (item.getControl() instanceof CompareComposite) {
+					item.setImage(RepDevMain.smallCompareImage);
+				}
+			}
+		}
+		if (errorsTab != null && !errorsTab.isDisposed()) errorsTab.setImage(RepDevMain.smallErrorsImage);
+		if (tasksTab != null && !tasksTab.isDisposed()) tasksTab.setImage(RepDevMain.smallTasksImage);
+	}
+
+	private void setToolImage(ToolItem item, Image image) {
+		if (item != null && !item.isDisposed()) item.setImage(image);
 	}
 
 	public CoolBar getCoolBar() {
@@ -3913,7 +4109,7 @@ public class MainShell {
 		}
 	}
 	private void createEditorBar() {
-		editorBar = new ToolBar(coolBar, SWT.FLAT);
+		editorBar = new ToolBar(coolBar, SWT.FLAT | SWT.HORIZONTAL);
 		editorBar.setData("editorComposite");
 		addBar(editorBar);
 
@@ -3946,6 +4142,7 @@ public class MainShell {
 		fscreen.setImage(RepDevMain.smallIndentLessImage);
 		fscreen.setToolTipText("Toggles the visibility of the Explorer and Tasks panels");
 		//fscreen.setEnabled(false);
+		editorBar.pack();
 
 		// EditorBar button actions
 		

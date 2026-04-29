@@ -52,7 +52,7 @@ public class DatabaseLayout {
 		fieldPattern = Pattern.compile("([\\s]*)([a-zA-Z0-9:]*)\\|(.*)\\|(.*)\\|(.*)\\|(.*)");
 
 		try {
-			BufferedReader br = new BufferedReader(new FileReader("db.txt"));
+			BufferedReader br = new BufferedReader(new FileReader(com.repdev.RepDevMain.installRoot() + "db.txt"));
 			String line;
 
 			while ((line = br.readLine()) != null) {

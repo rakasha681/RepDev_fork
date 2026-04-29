@@ -1,0 +1,21 @@
+<RepDevStyle extends="default">
+  <header>
+    <name>Platinum Light</name>
+    <version>1.0</version>
+    <author>Gemini</author>
+    <description><![CDATA[Sophisticated grayscale theme with subtle metal tones.]]></description>
+  </header>
+  <palette>
+    <color id="plat-bg" value="#F8FAFC" />
+    <color id="plat-gutter" value="#F1F5F9" />
+  </palette>
+  <style>
+    <editor bgColor="@plat-bg" gutterBg="@plat-gutter" selectionBg="#E2E8F0" />
+    <surface bgColor="#F1F5F9" sashColor="#CBD5E1" borderColor="#CBD5E1" />
+    <tabStyle inactiveBg="#E2E8F0" inactiveFg="#475569" />
+    <keywords fgColor="#0F172A" style="bold" />
+    <comments fgColor="#94A3B8" />
+    <variables fgColor="#334155" style="bold" />
+    <rainbow c1="#B45309" c2="#7C3AED" c3="#1D4ED8" c4="#047857" c5="#BE123C" c6="#C2410C" />
+  </style>
+</RepDevStyle>

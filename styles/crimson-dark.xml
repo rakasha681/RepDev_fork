@@ -1,0 +1,20 @@
+<RepDevStyle extends="dark">
+  <header>
+    <name>Crimson Dark</name>
+    <version>1.0</version>
+    <author>Gemini</author>
+    <description><![CDATA[High-energy dark theme with deep reds and orange accents.]]></description>
+  </header>
+  <palette>
+    <color id="crimson-bg" value="#1A0A0A" />
+    <color id="crimson-accent" value="#EF4444" />
+  </palette>
+  <style>
+    <editor bgColor="@crimson-bg" gutterBg="#140707" selectionBg="#7F1D1D" />
+    <surface bgColor="#1A0A0A" sashColor="#991B1B" borderColor="#991B1B" />
+    <keywords fgColor="#FCA5A5" />
+    <functions fgColor="#F97316" />
+    <task fgColor="#FCD34D" style="bold,italic" />
+    <rainbow c1="#FCD34D" c2="#F472B6" c3="#60A5FA" c4="#A3E635" c5="#F87171" c6="#FB923C" />
+  </style>
+</RepDevStyle>

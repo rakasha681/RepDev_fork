@@ -1,0 +1,22 @@
+<RepDevStyle extends="default">
+  <header>
+    <name>Sepia Soft</name>
+    <version>1.0</version>
+    <author>Gemini</author>
+    <description><![CDATA[Warm, low-contrast theme designed for reduced eye strain during long hours.]]></description>
+  </header>
+  <palette>
+    <color id="sepia-bg" value="#FDF6E3" />
+    <color id="sepia-gutter" value="#F5EBD3" />
+    <color id="sepia-text" value="#586E75" />
+  </palette>
+  <style>
+    <editor bgColor="@sepia-bg" fgColor="@sepia-text" gutterBg="@sepia-gutter" selectionBg="#EEE8D5" />
+    <surface bgColor="#EEE8D5" fgColor="#657B83" sashColor="#93A1A1" borderColor="#93A1A1" />
+    <tabStyle inactiveBg="#DEE3D3" inactiveFg="#839496" />
+    <comments fgColor="#93A1A1" style="italic" />
+    <keywords fgColor="#859900" />
+    <functions fgColor="#268BD2" />
+    <rainbow c1="#B58900" c2="#D33682" c3="#268BD2" c4="#859900" c5="#DC322F" c6="#CB4B16" />
+  </style>
+</RepDevStyle>

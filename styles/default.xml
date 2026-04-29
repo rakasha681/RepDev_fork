@@ -1,28 +1,41 @@
 <RepDevStyle>
   <header>
-    <name>Standard RepDev</name>
-    <version>1.0</version>
-    <author>Ryan (originally by Jake)</author>
-    <description><![CDATA[This is the default/standard repdev style.  It has been around and evolved from the very beginning]]>
+    <name>Default</name>
+    <version>2.0</version>
+    <author>RepDev</author>
+    <description><![CDATA[Modern light theme with a neutral gray palette and blue accents. Replaces the classic default; the original is still available as "legacy-default".]]>
     </description>
   </header>
-  
-  <style>
-    <editor bgColor="FFFFFF" fgColor="000000" line="E8F2FE" token="C0C0C0" font="Courier New" fontSize="11" />
 
-    <linenumber fgColor="#C0C0C0" />
-    <comments fgColor="#7F7F7F" />
-    <variables fgColor="#000000" style="bold" />    
-    <functions fgColor="#0000FF" style="bold" />    
-    <keywords fgColor="#0000FF" />
-    <task fgColor="#404040" style="bold" />
-    
-    <typeChar fgColor="#FF0000" />
-    <typeDate fgColor="#FF0000" style="bold" />
-    
-    <struct1 fgColor="#FF00FF" />
-    <struct1Inv fgColor="#FF00FF" bgColor="#7F0000" />    
-    <struct2 fgColor="#FF7FFF" />
-    <struct2Inv fgColor="#FF7FFF" bgColor="#7F0000" />    
+  <palette>
+    <color id="primary-blue" value="#2563EB" />
+    <color id="surface-gray" value="#F4F5F7" />
+    <color id="border-gray"  value="#D8DDE3" />
+  </palette>
+
+  <style>
+    <editor bgColor="#FCFCFD" fgColor="#24292E" line="#EEF2F6" token="#E2ECF8" font="Courier New" fontSize="12" gutterBg="#F7F8FA" selectionBg="#CFE4FF" selectionFg="#1F2937" />
+
+    <surface   bgColor="@surface-gray" fgColor="#24292E" sashColor="@border-gray" borderColor="@border-gray" />
+    <button    bgColor="@primary-blue" fgColor="#FFFFFF" />
+    <selection bgColor="@primary-blue" fgColor="#FFFFFF" />
+    <tabStyle  selBg="#FFFFFF"   selFg="#24292E" inactiveBg="#EAEDF1" inactiveFg="#5B6470" borderColor="@border-gray" selThickness="3" />
+
+    <linenumber fgColor="#8B949E" />
+    <comments   fgColor="#6A737D" />
+    <variables  fgColor="#005CC5" style="bold" />
+    <functions  fgColor="#6F42C1" style="bold" />
+    <keywords   fgColor="#D73A49" />
+    <task       fgColor="#B08800" style="bold" />
+
+    <typeChar fgColor="#032F62" />
+    <typeDate fgColor="#032F62" style="bold" />
+
+    <struct1    fgColor="#22863A" />
+    <struct1Inv fgColor="#22863A" bgColor="#FFDCE0" />
+    <struct2    fgColor="#005CC5" />
+    <struct2Inv fgColor="#005CC5" bgColor="#FFDCE0" />
+
+    <rainbow c1="#C2410C" c2="#9333EA" c3="#1D4ED8" c4="#047857" c5="#BE123C" c6="#B45309" />
   </style>
 </RepDevStyle>
