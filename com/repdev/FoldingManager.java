@@ -422,6 +422,12 @@ public class FoldingManager implements HiddenTextProvider {
 			folded.set(i, new FoldRegion(fr.headerLine, fr.hiddenText, fr.headerLine));
 		}
 		boolean any = false;
+		// Suppress redraw across the whole batch instead of letting each
+		// collapseInternal's nested setRedraw(true) trigger an immediate
+		// repaint. SWT's setRedraw counter nests, so the inner pairs become
+		// no-ops while this outer suppress is active and we get one paint
+		// at the end. Prior behavior: 20 folds = 20 full-buffer repaints.
+		txt.setRedraw(false);
 		try {
 			for (int i = 0; i < ranges.size(); i++) {
 				FoldableRange r = ranges.get(i);
@@ -434,12 +440,14 @@ public class FoldingManager implements HiddenTextProvider {
 		} finally {
 			batchMode = prevBatch;
 			preBatchHiddenTexts = prevSnapshot;
+			txt.setRedraw(true);
 		}
 		if (any) {
 			// One reparse + foldable rebuild to leave the parser and range cache
 			// consistent after suppressing per-op reparses during the batch.
 			if (parser != null) parser.reparseAll();
 			recomputeRanges();
+			editor.refreshAfterFoldBatch();
 			if (pushUndo) editor.pushFoldUndo(EditorComposite.FOLD_OP_COLLAPSE_ALL, -1);
 		}
 	}
@@ -469,6 +477,7 @@ public class FoldingManager implements HiddenTextProvider {
 
 		folded.clear();
 		recomputeRanges();
+		editor.refreshAfterFoldBatch();
 		if (pushUndo) editor.pushFoldUndo(EditorComposite.FOLD_OP_EXPAND_ALL, -1);
 	}
 

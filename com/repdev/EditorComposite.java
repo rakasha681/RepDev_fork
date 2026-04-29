@@ -201,6 +201,17 @@ public class EditorComposite extends Composite implements TabTextEditorView, Edi
 		if (undoCtl != null) undoCtl.pushFoldUndo(op, line);
 	}
 
+	/**
+	 * EditorFoldHost contract. Restores per-line view state once the fold
+	 * engine has finished a batch — collapse-all / expand-all / undo replay
+	 * suppress the per-edit lineHighlight() in the modify listener for
+	 * performance, so we do one repaint here at the end instead of N during.
+	 */
+	public void refreshAfterFoldBatch() {
+		if (txt == null || txt.isDisposed()) return;
+		lineHighlight();
+	}
+
 	public void setLineColor(SyntaxHighlighter hiColor){
 		lineBackgroundColor=hiColor.getLineColor();
 		blockMatchColor=hiColor.getBlockMatchColor();
@@ -536,7 +547,19 @@ public class EditorComposite extends Composite implements TabTextEditorView, Edi
 		txt.addExtendedModifyListener(new ExtendedModifyListener() {
 
 			public void modifyText(ExtendedModifyEvent event) {
-				lineHighlight();
+				// Suppress the per-event lineHighlight() repaint and the
+				// modified-flag update when a fold operation is driving the
+				// edit. lineHighlight() does a full-buffer setLineBackground
+				// + redraw which is O(N) per fold; collapse-all on a file
+				// with 20 foldable blocks paid that cost 20 times and
+				// dominated the multi-second freeze. The fold-batch entry
+				// points (collapseAll/expandAll) issue a single repaint at
+				// the end via the host. Fold ops are also not user content
+				// changes — they mutate the live view but the saved file
+				// (via getUnfoldedText()) is unchanged, so dirtying the
+				// modified flag is wrong on its own merits.
+				boolean inFoldOp = folding != null && folding.isInFoldOp();
+				if (!inFoldOp) lineHighlight();
 
 				// Keep folded region line numbers in sync with edits above them.
 				// Only needed for user edits; fold/unfold operations manage their own shifts.
@@ -574,8 +597,10 @@ public class EditorComposite extends Composite implements TabTextEditorView, Edi
 					scheduleFoldingRecompute();
 				}
 
-				modified = true;
-				updateModified();
+				if (!inFoldOp) {
+					modified = true;
+					updateModified();
+				}
 
 				// Fold/unfold operations mutate the buffer but must not pollute
 				// the undo history — they have their own separate state via

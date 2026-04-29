@@ -36,4 +36,14 @@ public interface EditorFoldHost {
 	 * @param foldLine the line that was folded; ignored for fold-all ops
 	 */
 	void pushFoldUndo(int op, int foldLine);
+
+	/**
+	 * Called by the fold engine once a batch of collapses/expands has
+	 * settled (collapseAll / expandAll / undo replay). The host can use
+	 * this to refresh editor view state that was suppressed during the
+	 * batch — most importantly the current-line highlight, which would
+	 * otherwise be left painted on a stale line index after dozens of
+	 * line removals.
+	 */
+	void refreshAfterFoldBatch();
 }
