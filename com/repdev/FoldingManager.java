@@ -402,63 +402,50 @@ public class FoldingManager implements HiddenTextProvider {
 	public void collapseAllSilent() { collapseAllInternal(false); }
 
 	private void collapseAllInternal(boolean pushUndo) {
-		// Fast path for the common case (large file, no pre-existing folds,
-		// click "fold all"): build the post-collapse text and the new folded[]
-		// list in memory and apply ONE replaceTextRange. The slow path below
-		// pays N edit-overheads (each rebuilding StyledText's line index),
-		// which dominates fold-all on files with many foldable blocks.
-		if (folded.isEmpty() && !foldable.isEmpty()) {
-			collapseAllSinglePass(pushUndo);
+		// Always reach for the single-pass collapse — it builds the post-
+		// collapse buffer in memory and applies one StyledText edit, which
+		// is dramatically cheaper on large files than the per-fold loop
+		// (each replaceTextRange rebuilds StyledText's line index). When
+		// some regions are already collapsed the single-pass path needs an
+		// expanded buffer to start from, so we do one in-memory expand
+		// first. Two big edits + two reparses still beats N small edits
+		// for any file where N is meaningfully large.
+		if (!folded.isEmpty()) {
+			expandAllInMemory();
+		}
+		if (foldable.isEmpty()) {
+			// Nothing to fold (empty parse, or the expand step left us with
+			// no foldable structure). Refresh so any expand-step gutter
+			// state lands cleanly even on this no-op path.
+			editor.refreshAfterFoldBatch();
 			return;
 		}
-		// Fold from bottom up so earlier line numbers stay stable during iteration.
-		ArrayList<FoldableRange> ranges = new ArrayList<FoldableRange>(foldable);
-		Collections.sort(ranges, new Comparator<FoldableRange>() {
-			public int compare(FoldableRange a, FoldableRange b) { return b.headerLine - a.headerLine; }
-		});
-		boolean prevBatch = batchMode;
-		batchMode = true;
-		HashSet<String> prevSnapshot = preBatchHiddenTexts;
-		preBatchHiddenTexts = new HashSet<String>();
-		for (int i = 0; i < folded.size(); i++) preBatchHiddenTexts.add(folded.get(i).hiddenText);
-		// Anchor the t=0 coord system for this batch: every fold already in
-		// `folded` gets originalHeaderLine = its current headerLine. Batch-
-		// added folds will set originalHeaderLine from their snapshot range's
-		// headerLine, which is also a t=0 coord. That keeps nested-check math
-		// consistent regardless of shift accumulation.
-		for (int i = 0; i < folded.size(); i++) {
-			FoldRegion fr = folded.get(i);
-			folded.set(i, new FoldRegion(fr.headerLine, fr.hiddenText, fr.headerLine));
-		}
-		boolean any = false;
-		// Suppress redraw across the whole batch instead of letting each
-		// collapseInternal's nested setRedraw(true) trigger an immediate
-		// repaint. SWT's setRedraw counter nests, so the inner pairs become
-		// no-ops while this outer suppress is active and we get one paint
-		// at the end. Prior behavior: 20 folds = 20 full-buffer repaints.
-		txt.setRedraw(false);
+		collapseAllSinglePass(pushUndo);
+	}
+
+	/**
+	 * In-memory equivalent of {@link #expandAllInternal} without the host
+	 * refresh / undo entry — used as a setup step inside collapse-all when
+	 * the buffer has pre-existing folds. The eventual post-batch refresh
+	 * runs once at the end of the outer collapse.
+	 */
+	private void expandAllInMemory() {
+		String expanded = expandAllText(txt.getText(), folded);
+		inFoldOp = true;
 		try {
-			for (int i = 0; i < ranges.size(); i++) {
-				FoldableRange r = ranges.get(i);
-				FoldableRange fresh = foldableAtLine(r.headerLine);
-				if (fresh != null && foldedAtLine(fresh.headerLine) == null) {
-					collapseInternal(fresh, false);
-					any = true;
-				}
-			}
+			if (parser != null) parser.setReparse(false);
+			txt.setRedraw(false);
+			txt.replaceTextRange(0, txt.getCharCount(), expanded);
 		} finally {
-			batchMode = prevBatch;
-			preBatchHiddenTexts = prevSnapshot;
 			txt.setRedraw(true);
+			if (parser != null) {
+				parser.setReparse(true);
+				parser.reparseAll();
+			}
+			inFoldOp = false;
 		}
-		if (any) {
-			// One reparse + foldable rebuild to leave the parser and range cache
-			// consistent after suppressing per-op reparses during the batch.
-			if (parser != null) parser.reparseAll();
-			recomputeRanges();
-			editor.refreshAfterFoldBatch();
-			if (pushUndo) editor.pushFoldUndo(EditorComposite.FOLD_OP_COLLAPSE_ALL, -1);
-		}
+		folded.clear();
+		recomputeRanges();
 	}
 
 	/**

@@ -204,11 +204,13 @@ public class EditorComposite extends Composite implements TabTextEditorView, Edi
 	/**
 	 * EditorFoldHost contract. Restores per-line view state once the fold
 	 * engine has finished a batch — collapse-all / expand-all / undo replay
-	 * suppress the per-edit lineHighlight() in the modify listener for
-	 * performance, so we do one repaint here at the end instead of N during.
+	 * suppress the per-edit lineHighlight() and gutter resize in the modify
+	 * listener for performance and correctness, so we do them once here
+	 * with the post-batch fold state instead of N times during.
 	 */
 	public void refreshAfterFoldBatch() {
 		if (txt == null || txt.isDisposed()) return;
+		if (gutter != null) gutter.postModifyRefresh();
 		lineHighlight();
 	}
 
@@ -679,7 +681,16 @@ public class EditorComposite extends Composite implements TabTextEditorView, Edi
 
 				// Refresh gutter: width may have grown with line count.
 				// GutterRenderer scopes the invalidate to the visible strip.
-				if (gutter != null) gutter.postModifyRefresh();
+				// Suppress during fold ops — the gutter width depends on the
+				// unfolded line count via folding.getUnfoldedLineCount(), and
+				// the fold engine only updates `folded` AFTER the buffer
+				// edit. A fast-path fold-all that sees folded=empty here
+				// would size the gutter for the just-collapsed visible
+				// count and the line-number column would be a digit too
+				// narrow, letting the body text spill left over the
+				// triangles. The post-batch hook calls postModifyRefresh
+				// once with the correct fold state.
+				if (gutter != null && !inFoldOp) gutter.postModifyRefresh();
 			}
 
 		});
