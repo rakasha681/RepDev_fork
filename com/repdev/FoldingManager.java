@@ -431,6 +431,11 @@ public class FoldingManager implements HiddenTextProvider {
 	 */
 	private void expandAllInMemory() {
 		String expanded = expandAllText(txt.getText(), folded);
+		// Clear `folded` BEFORE the replace, mirroring the pre-populate in
+		// collapseAllSinglePass. The modify listener reads `folded` for the
+		// gutter sizing — leaving stale entries here would oversize the
+		// line-number column by the about-to-be-restored hidden count.
+		folded.clear();
 		inFoldOp = true;
 		try {
 			if (parser != null) parser.setReparse(false);
@@ -444,7 +449,6 @@ public class FoldingManager implements HiddenTextProvider {
 			}
 			inFoldOp = false;
 		}
-		folded.clear();
 		recomputeRanges();
 	}
 
@@ -470,6 +474,23 @@ public class FoldingManager implements HiddenTextProvider {
 
 		String full = txt.getText();
 		int totalLines = txt.getLineCount();
+		// Pre-compute line start offsets in ONE pass over `full` so the loop
+		// below is O(F + N) instead of O(F × N). On a 1500-fold file at ~2MB
+		// the previous per-call offsetAtLineStart(full, line) was scanning
+		// the full text twice per range = billions of char compares = the
+		// multi-minute freeze. lineStarts[k] is the byte offset where line k
+		// begins; lineStarts[totalLines] = full.length() as a sentinel for
+		// "past EOF".
+		int[] lineStarts = new int[totalLines + 1];
+		lineStarts[0] = 0;
+		int seenLines = 1;
+		for (int i = 0; i < full.length() && seenLines < lineStarts.length; i++) {
+			if (full.charAt(i) == '\n') {
+				lineStarts[seenLines++] = i + 1;
+			}
+		}
+		while (seenLines < lineStarts.length) lineStarts[seenLines++] = full.length();
+
 		StringBuilder out = new StringBuilder(full.length());
 		ArrayList<FoldRegion> newFolded = new ArrayList<FoldRegion>();
 		int cursor = 0;
@@ -477,7 +498,9 @@ public class FoldingManager implements HiddenTextProvider {
 
 		for (int i = 0; i < outermost.size(); i++) {
 			FoldableRange r = outermost.get(i);
-			int sliceStart = offsetAtLineStart(full, r.headerLine + 1);
+			int sliceStart = (r.headerLine + 1 < lineStarts.length)
+					? lineStarts[r.headerLine + 1]
+					: full.length();
 			int sliceEnd;
 			if (r.bracket) {
 				// Match per-fold semantics: keep the ']' visible so the
@@ -486,7 +509,7 @@ public class FoldingManager implements HiddenTextProvider {
 			} else if (r.endLine + 1 >= totalLines) {
 				sliceEnd = full.length();
 			} else {
-				sliceEnd = offsetAtLineStart(full, r.endLine + 1);
+				sliceEnd = lineStarts[r.endLine + 1];
 			}
 			if (sliceEnd <= sliceStart) continue;
 			// Outermost filter should prevent this, but be defensive against
@@ -503,6 +526,18 @@ public class FoldingManager implements HiddenTextProvider {
 		}
 		out.append(full, cursor, full.length());
 
+		// CRITICAL: populate `folded` BEFORE the replaceTextRange. The
+		// modify listener fires during the replace and reads `folded` (via
+		// getUnfoldedLineCount) to size the gutter. With folded still empty
+		// the listener would size the line-number column for the just-
+		// collapsed visible count instead of the unfolded total, leaving
+		// the column a digit too narrow and the body text spilling left
+		// over the triangles. Pre-populating with the post-collapse line
+		// numbers is safe: setRedraw(false) suppresses paint until after
+		// the replace, by which point the buffer matches the headerLines
+		// in `newFolded`.
+		folded.addAll(newFolded);
+
 		inFoldOp = true;
 		try {
 			if (parser != null) parser.setReparse(false);
@@ -517,7 +552,6 @@ public class FoldingManager implements HiddenTextProvider {
 			inFoldOp = false;
 		}
 
-		folded.addAll(newFolded);
 		recomputeRanges();
 		editor.refreshAfterFoldBatch();
 		if (pushUndo) editor.pushFoldUndo(EditorComposite.FOLD_OP_COLLAPSE_ALL, -1);

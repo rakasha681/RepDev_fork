@@ -681,16 +681,12 @@ public class EditorComposite extends Composite implements TabTextEditorView, Edi
 
 				// Refresh gutter: width may have grown with line count.
 				// GutterRenderer scopes the invalidate to the visible strip.
-				// Suppress during fold ops — the gutter width depends on the
-				// unfolded line count via folding.getUnfoldedLineCount(), and
-				// the fold engine only updates `folded` AFTER the buffer
-				// edit. A fast-path fold-all that sees folded=empty here
-				// would size the gutter for the just-collapsed visible
-				// count and the line-number column would be a digit too
-				// narrow, letting the body text spill left over the
-				// triangles. The post-batch hook calls postModifyRefresh
-				// once with the correct fold state.
-				if (gutter != null && !inFoldOp) gutter.postModifyRefresh();
+				// Safe to run during fold ops because the fast-path
+				// collapseAllSinglePass / expandAllInMemory now pre-update
+				// `folded` before the replaceTextRange, so
+				// getUnfoldedLineCount returns the correct post-batch
+				// total here.
+				if (gutter != null) gutter.postModifyRefresh();
 			}
 
 		});
