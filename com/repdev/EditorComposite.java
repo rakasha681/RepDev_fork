@@ -80,6 +80,8 @@ import com.repdev.parser.BackgroundSectionParser;
 import com.repdev.parser.SectionInfo;
 import com.repdev.parser.Variable;
 import com.repdev.parser.Token.TokenType;
+import com.repdev.theme.ThemeResources;
+import com.repdev.theme.ThemeService;
 
 /**
  * Main editor for repgen, help, and letter files
@@ -398,7 +400,13 @@ public class EditorComposite extends Composite implements TabTextEditorView, Edi
 				return (folding != null) ? folding.getDisplayLineNumber(line) : line + 1;
 			}
 			public Color getBulletColor() {
-				return (highlighter != null) ? highlighter.getBulletColor() : null;
+				// Read straight from the active theme so the gutter stays
+				// themed when syntax highlighting is toggled off — otherwise
+				// `highlighter == null` would suppress the bullet paint and
+				// the line numbers would render in the widget's default fg
+				// (black on dark themes).
+				ThemeResources r = ThemeService.getInstance().getCurrent();
+				return r != null ? r.bulletColor : null;
 			}
 		});
 
