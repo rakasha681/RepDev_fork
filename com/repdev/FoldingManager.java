@@ -402,6 +402,15 @@ public class FoldingManager implements HiddenTextProvider {
 	public void collapseAllSilent() { collapseAllInternal(false); }
 
 	private void collapseAllInternal(boolean pushUndo) {
+		// Fast path for the common case (large file, no pre-existing folds,
+		// click "fold all"): build the post-collapse text and the new folded[]
+		// list in memory and apply ONE replaceTextRange. The slow path below
+		// pays N edit-overheads (each rebuilding StyledText's line index),
+		// which dominates fold-all on files with many foldable blocks.
+		if (folded.isEmpty() && !foldable.isEmpty()) {
+			collapseAllSinglePass(pushUndo);
+			return;
+		}
 		// Fold from bottom up so earlier line numbers stay stable during iteration.
 		ArrayList<FoldableRange> ranges = new ArrayList<FoldableRange>(foldable);
 		Collections.sort(ranges, new Comparator<FoldableRange>() {
@@ -450,6 +459,105 @@ public class FoldingManager implements HiddenTextProvider {
 			editor.refreshAfterFoldBatch();
 			if (pushUndo) editor.pushFoldUndo(EditorComposite.FOLD_OP_COLLAPSE_ALL, -1);
 		}
+	}
+
+	/**
+	 * Single-pass collapse-all. Computes the post-collapse buffer in memory
+	 * and applies one StyledText edit. O(N) total in buffer length, vs the
+	 * per-fold path's O(folds × edit-cost) where edit-cost includes a full
+	 * line-index rebuild on every replaceTextRange. Only safe when no folds
+	 * are already in {@code folded} — pre-existing folds change the meaning
+	 * of {@code foldable}'s line numbers, and rebuilding the full text from
+	 * a partially-collapsed buffer would re-introduce the per-fold cost we
+	 * are trying to avoid.
+	 */
+	private void collapseAllSinglePass(boolean pushUndo) {
+		ArrayList<FoldableRange> outermost = filterOutermostRanges(foldable);
+		if (outermost.isEmpty()) return;
+		// Top-down so the {@code hiddenLines} accumulator below is monotonic
+		// against each range's headerLine and the offset arithmetic stays
+		// straightforward.
+		Collections.sort(outermost, new Comparator<FoldableRange>() {
+			public int compare(FoldableRange a, FoldableRange b) { return a.headerLine - b.headerLine; }
+		});
+
+		String full = txt.getText();
+		int totalLines = txt.getLineCount();
+		StringBuilder out = new StringBuilder(full.length());
+		ArrayList<FoldRegion> newFolded = new ArrayList<FoldRegion>();
+		int cursor = 0;
+		int hiddenLines = 0;
+
+		for (int i = 0; i < outermost.size(); i++) {
+			FoldableRange r = outermost.get(i);
+			int sliceStart = offsetAtLineStart(full, r.headerLine + 1);
+			int sliceEnd;
+			if (r.bracket) {
+				// Match per-fold semantics: keep the ']' visible so the
+				// comment highlighter still sees the close.
+				sliceEnd = r.endTokenOffset;
+			} else if (r.endLine + 1 >= totalLines) {
+				sliceEnd = full.length();
+			} else {
+				sliceEnd = offsetAtLineStart(full, r.endLine + 1);
+			}
+			if (sliceEnd <= sliceStart) continue;
+			// Outermost filter should prevent this, but be defensive against
+			// any pathological overlap so we never produce a corrupt buffer.
+			if (sliceStart < cursor) continue;
+
+			out.append(full, cursor, sliceStart);
+			String hidden = full.substring(sliceStart, sliceEnd);
+			int newHeaderLine = r.headerLine - hiddenLines;
+			newFolded.add(new FoldRegion(newHeaderLine, hidden));
+
+			cursor = sliceEnd;
+			hiddenLines += countNewlines(hidden);
+		}
+		out.append(full, cursor, full.length());
+
+		inFoldOp = true;
+		try {
+			if (parser != null) parser.setReparse(false);
+			txt.setRedraw(false);
+			txt.replaceTextRange(0, full.length(), out.toString());
+		} finally {
+			txt.setRedraw(true);
+			if (parser != null) {
+				parser.setReparse(true);
+				parser.reparseAll();
+			}
+			inFoldOp = false;
+		}
+
+		folded.addAll(newFolded);
+		recomputeRanges();
+		editor.refreshAfterFoldBatch();
+		if (pushUndo) editor.pushFoldUndo(EditorComposite.FOLD_OP_COLLAPSE_ALL, -1);
+	}
+
+	/**
+	 * Filter to ranges that are not properly contained by any other range in
+	 * the same list. Used by the single-pass collapse-all so nested ranges
+	 * are absorbed into their outer's hiddenText, matching the slow path's
+	 * "expand-then-recollapse" semantics.
+	 */
+	static ArrayList<FoldableRange> filterOutermostRanges(ArrayList<FoldableRange> ranges) {
+		ArrayList<FoldableRange> out = new ArrayList<FoldableRange>();
+		for (int i = 0; i < ranges.size(); i++) {
+			FoldableRange r = ranges.get(i);
+			boolean contained = false;
+			for (int j = 0; j < ranges.size(); j++) {
+				if (i == j) continue;
+				FoldableRange o = ranges.get(j);
+				if (o.headerLine < r.headerLine && o.endLine >= r.endLine) {
+					contained = true;
+					break;
+				}
+			}
+			if (!contained) out.add(r);
+		}
+		return out;
 	}
 
 	public void expandAll() { expandAllInternal(true); }
